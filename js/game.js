@@ -33,6 +33,7 @@
           case 'Enter': return 'start';
           case 'Digit1': case 'Digit2': case 'Digit3': return 'lvl' + code[5];
           case 'KeyP': return 'pause';
+          case 'KeyH': case 'Slash': case 'F1': return 'help';
           case 'KeyM': return 'mute';
         }
         return null;
@@ -48,6 +49,7 @@
         else if (k === 'start') this.input.start = true;
         else if (k.startsWith('lvl')) { if (this.state === 'title') this.startGame(+k[3] - 1); }
         else if (k === 'pause') this.togglePause();
+        else if (k === 'help') this.toggleHelp();
         else if (k === 'mute') { AUDIO.toggleMute(); }
         else this.input[k] = true;
       });
@@ -62,6 +64,14 @@
     togglePause() {
       if (this.state === 'play') { this.state = 'pause'; AUDIO.MUSIC.stop(); }
       else if (this.state === 'pause') { this.state = 'play'; AUDIO.MUSIC.start(); }
+      else if (this.state === 'help') this.toggleHelp();
+    }
+    // Help overlay: freezes whatever state we were in and restores it after.
+    toggleHelp() {
+      if (this.state === 'help') { this.state = this.helpReturn; if (this.state === 'play') AUDIO.MUSIC.start(); return; }
+      if (this.state === 'title' || this.state === 'intro') return;
+      this.helpReturn = this.state; this.state = 'help';
+      if (this.helpReturn === 'play') AUDIO.MUSIC.stop();
     }
 
     // ----- level -----
@@ -394,7 +404,8 @@
       this.drawHUD();
       if (this.state === 'title') this.drawTitle();
       else if (this.state === 'intro') this.drawIntro();
-      else if (this.state === 'pause') this.banner('PAUSED', 'PRESS P TO CONTINUE');
+      else if (this.state === 'pause') { ctx.fillStyle = 'rgba(20,20,40,0.6)'; ctx.fillRect(0, 60, VW, 270); P.text('PAUSED', Math.round((VW - PX.textWidth('PAUSED', 3)) / 2), 80, 3, '#ffe27a', '#3a2a3a'); P.text('PRESS P TO CONTINUE', Math.round((VW - PX.textWidth('PRESS P TO CONTINUE', 1)) / 2), 112, 1, '#ffffff', '#3a2a3a'); this.drawControls(140); }
+      else if (this.state === 'help') { ctx.fillStyle = 'rgba(20,20,40,0.78)'; ctx.fillRect(0, 60, VW, 270); P.text('CONTROLS', Math.round((VW - PX.textWidth('CONTROLS', 3)) / 2), 80, 3, '#ffe27a', '#3a2a3a'); P.text('PRESS H TO CLOSE', Math.round((VW - PX.textWidth('PRESS H TO CLOSE', 1)) / 2), 112, 1, '#ffffff', '#3a2a3a'); this.drawControls(140); P.text('TIP: STOMP ENEMIES, POUND CRACKED TILES, POUNCE THROUGH CRACKED WALLS', 56, 300, 1, '#dfe8ff', '#3a2a3a'); }
       else if (this.state === 'gameover') this.banner('GAME OVER', 'PRESS ENTER');
       else if (this.state === 'ending') { this.banner('YOU WIN!', 'WHISKERS IS HOME FOR GOOD'); P.text('FINAL SCORE ' + this.scoreVal, Math.round((VW - PX.textWidth('FINAL SCORE ' + this.scoreVal, 2)) / 2), 250, 2, '#ffe27a', '#3a2a3a'); P.text('PRESS ENTER', Math.round((VW - PX.textWidth('PRESS ENTER', 1)) / 2), 280, 1, '#ffffff', '#3a2a3a'); }
       else if (this.state === 'clear' && this.clearTimer > 0) this.banner('LEVEL CLEAR!', 'WHISKERS IS HOME');
@@ -424,6 +435,16 @@
       P.text('TIME', 512, 10, 2, W, Sh);
       P.text(String(this.time).padStart(3, '0'), 512, 32, 2, this.time <= 100 && this.state === 'play' && (this.frame % 30) < 15 ? '#ff7a7a' : W, Sh);
       if (AUDIO.isMuted()) P.text('MUTED', 576, 340, 1, W, Sh);
+      if (this.state === 'play' || this.state === 'warp') P.text('H  HELP', 584, 348, 1, 'rgba(255,255,255,0.75)', Sh);
+    }
+    drawControls(y) {
+      const P = this.painter;
+      const rows = [
+        ['MOVE', 'ARROWS / WASD'], ['JUMP (HOLD = HIGHER)', 'SPACE / Z / UP'], ['RUN + THROW YARN', 'SHIFT / X'],
+        ['POUNCE DASH', 'C / L'], ['GROUND POUND', 'DOWN IN THE AIR'], ['WALL JUMP', 'PUSH INTO A WALL, THEN JUMP'],
+        ['ENTER WARP PIPE', 'DOWN ON TOP OF IT'], ['PAUSE / MUTE / HELP', 'P / M / H'],
+      ];
+      rows.forEach(([a, b], i) => { P.text(a, 96, y + i * 16, 1, '#ffe27a', '#3a2a3a'); P.text(b, 300, y + i * 16, 1, '#ffffff', '#3a2a3a'); });
     }
     banner(a, b) {
       const ctx = this.ctx, P = this.painter;
@@ -442,7 +463,7 @@
       const big = SPRITES.cat.big.idle.r;
       ctx.drawImage(big, Math.round(VW / 2 - big.width / 2), 140);
       if ((this.frame % 60) < 40) { const s = 'PRESS ENTER TO START'; P.text(s, Math.round((VW - PX.textWidth(s, 2)) / 2), 222, 2, '#ffffff', '#3a2a3a'); }
-      const lines = ['ARROWS / WASD  MOVE      SPACE / Z  JUMP', 'SHIFT / X  RUN + THROW YARN      C  POUNCE', 'DOWN IN AIR  GROUND POUND      DOWN ON PIPE  ENTER', 'JUMP OFF WALLS      P PAUSE   M MUTE', '1 / 2 / 3  START AT A LEVEL'];
+      const lines = ['ARROWS / WASD  MOVE      SPACE / Z  JUMP', 'SHIFT / X  RUN + THROW YARN      C  POUNCE', 'DOWN IN AIR  GROUND POUND      DOWN ON PIPE  ENTER', 'JUMP OFF WALLS      P PAUSE   M MUTE   H HELP', '1 / 2 / 3  START AT A LEVEL'];
       lines.forEach((l, i) => P.text(l, Math.round((VW - PX.textWidth(l, 1)) / 2), 258 + i * 12, 1, '#dfe8ff', '#3a2a3a'));
     }
 
