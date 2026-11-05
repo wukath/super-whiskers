@@ -6,7 +6,7 @@
 
   const PHYS = {
     gravity: 0.9, gravityHold: 0.36, maxFall: 12,
-    walkMax: 2.6, runMax: 4.6, accel: 0.16, airAccel: 0.14, decel: 0.3, skidDecel: 0.5,
+    walkMax: 2.6, runMax: 4.6, accel: 0.16, airAccel: 0.14, decel: 0.3, skidDecel: 0.5, crawlMax: 1.3,
     jumpV: -10.2, runJumpBonus: -1.2,
     wallSlideMax: 1.4, wallJumpV: -9.6, wallJumpVx: 5.2,
     dashSpeed: 7, dashFrames: 12, dashCooldown: 22, dashExitSpeed: 2.6,
@@ -57,7 +57,7 @@
   }
 
   // ---------------- Player ----------------
-  const FORMS = { small: { w: 20, h: 36 }, big: { w: 20, h: 52 }, yarn: { w: 20, h: 52 } };
+  const FORMS = { small: { w: 20, h: 36, crouch: 22 }, big: { w: 20, h: 52, crouch: 30 }, yarn: { w: 20, h: 52, crouch: 30 } };
   class Player extends Entity {
     constructor(x, y, opts = {}) {
       super(x, y, FORMS.small.w, FORMS.small.h);
@@ -67,14 +67,24 @@
       this.dying = false; this.deadTimer = 0; this.inWater = false; this.wasInWater = false; this.jumpHeld = false; this.coyote = 0; this.jumpBuffer = 0; this.skidding = false; this.sliding = false; this.frozen = false;
       this.sx = 1; this.sy = 1; this.wallDir = 0; this.wallSlide = false; this.wallCoyote = 0; this.inputLock = 0;
       this.dashTimer = 0; this.dashCooldown = 0; this.dashDir = 1; this.airDashUsed = false;
-      this.pound = null; this.poundTimer = 0; this.carrier = null; this.prevBottom = this.bottom; this.wasOnGround = false;
+      this.pound = null; this.poundTimer = 0; this.carrier = null; this.prevBottom = this.bottom; this.wasOnGround = false; this.crouch = false;
     }
     get big() { return this.form !== 'small'; }
     get dashing() { return this.dashTimer > 0; }
     get pounding() { return this.pound === 'fall'; }
     setForm(f) {
       const old = FORMS[this.form], nu = FORMS[f];
-      this.y += old.h - nu.h; this.h = nu.h; this.w = nu.w; this.form = f;
+      const oh = this.crouch ? old.crouch : old.h, nh = this.crouch ? nu.crouch : nu.h;
+      this.y += oh - nh; this.h = nh; this.w = nu.w; this.form = f;
+    }
+    setHeight(h) { this.y += this.h - h; this.h = h; }
+    // Is there room to stand up here?
+    canStand(game) {
+      const standH = FORMS[this.form].h;
+      const top = this.bottom - standH;
+      for (let r = Math.floor(top / T); r <= Math.floor((this.y - 1) / T); r++)
+        for (let c = Math.floor((this.x + 2) / T); c <= Math.floor((this.x + this.w - 3) / T); c++) if (game.isSolid(c, r)) return false;
+      return true;
     }
     squash(sx, sy) { this.sx = sx; this.sy = sy; }
     get alive() { return !this.dying && !this.bubbled && !this.out; }
@@ -130,7 +140,7 @@
       }
 
       // pounce dash
-      if (inp.dashPressed && this.dashCooldown === 0 && !this.dashing && !this.inWater && !(this.airDashUsed && !this.wasOnGround)) {
+      if (inp.dashPressed && this.dashCooldown === 0 && !this.dashing && !this.inWater && !this.crouch && !(this.airDashUsed && !this.wasOnGround)) {
         this.dashTimer = PHYS.dashFrames; this.dashDir = this.facing; this.dashCooldown = PHYS.dashCooldown + PHYS.dashFrames;
         if (!this.wasOnGround) this.airDashUsed = true;
         this.squash(1.3, 0.75); AUDIO.SFX.dash();
@@ -149,9 +159,14 @@
         return;
       }
 
+      // crouching: hold down on the ground; stay down while something is overhead
+      const wantCrouch = inp.down && this.wasOnGround && !this.inWater;
+      if (!this.crouch && wantCrouch) { this.crouch = true; this.setHeight(FORMS[this.form].crouch); }
+      else if (this.crouch && !wantCrouch && this.canStand(game)) { this.crouch = false; this.setHeight(FORMS[this.form].h); }
+
       // horizontal
       const dir = this.inputLock > 0 ? 0 : (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
-      const max = this.inWater ? PHYS.waterMax : (inp.run ? PHYS.runMax : PHYS.walkMax);
+      const max = this.crouch ? PHYS.crawlMax : this.inWater ? PHYS.waterMax : (inp.run ? PHYS.runMax : PHYS.walkMax);
       const acc = this.inWater ? PHYS.waterAccel : (this.wasOnGround ? PHYS.accel : PHYS.airAccel);
       this.skidding = false;
       if (dir !== 0) {
@@ -184,6 +199,7 @@
         this.jumpHeld = false;
       } else {
         if (this.jumpBuffer > 0 && this.coyote > 0) {
+          if (this.crouch && this.canStand(game)) { this.crouch = false; this.setHeight(FORMS[this.form].h); }
           this.vy = PHYS.jumpV + PHYS.runJumpBonus * Math.min(1, Math.abs(this.vx) / PHYS.runMax);
           this.jumpHeld = true; this.coyote = 0; this.jumpBuffer = 0; this.onGround = false;
           this.squash(0.78, 1.22); AUDIO.SFX.jump();
@@ -287,6 +303,7 @@
       if (this.dashing) return set.skid;
       if (this.inWater) return set.swim[this.swimKick > 6 ? 0 : Math.floor(this.anim) % 2];
       if (this.wallSlide) return set.skid;
+      if (this.crouch) return Math.abs(this.vx) > 0.3 ? set.walk[Math.floor(this.anim) % 4] : set.idle;
       if (!this.onGround) return set.jump;
       if (this.skidding) return set.skid;
       if (Math.abs(this.vx) > 0.3) return set.walk[Math.floor(this.anim) % 4];
@@ -306,6 +323,7 @@
     }
     popBubble(game) {
       this.bubbled = false; this.dying = false; this.deadTimer = 0; this.hurtTimer = 120; this.vx = 0; this.vy = -4; this.pound = null; this.dashTimer = 0;
+      if (this.crouch) { this.crouch = false; this.setHeight(FORMS[this.form].h); }
       if (this.form !== 'small') this.setForm('small');
       this.squash(0.7, 1.3); AUDIO.SFX.appear(); game.add(new Sparkle(this.cx, this.y + 10, '#bfe8ff'));
     }
@@ -328,11 +346,12 @@
       let cv = this.facing < 0 ? img.l : img.r;
       if (this.wallSlide) cv = this.wallDir > 0 ? img.l : img.r;
       const bx = this.cx - cam.x + (this.errX || 0), by = this.bottom - cam.y + (this.errY || 0);
+      const crouchScale = this.crouch ? (this.h + 6) / FORMS[this.form].h : 1;
       if (game && game.players.length > 1 && !this.dying) { const row = game.players.indexOf(this) % 2; game.painter.text(this.name, Math.round(bx - PX.textWidth(this.name, 1) / 2), Math.round(by - cv.height - 12 - row * 11), 1, '#ffffff', '#3a2a3a'); }
-      if (Math.abs(this.sx - 1) < 0.02 && Math.abs(this.sy - 1) < 0.02 && !this.pound) { ctx.drawImage(cv, Math.round(bx - cv.width / 2), Math.round(by - cv.height)); return; }
+      if (Math.abs(this.sx - 1) < 0.02 && Math.abs(this.sy - 1) < 0.02 && !this.pound && !this.crouch) { ctx.drawImage(cv, Math.round(bx - cv.width / 2), Math.round(by - cv.height)); return; }
       ctx.save(); ctx.translate(Math.round(bx), Math.round(by));
       if (this.pound === 'start') ctx.rotate(Math.sin(this.poundTimer * 0.8) * 0.3);
-      ctx.scale(this.sx, this.sy);
+      ctx.scale(this.sx * (this.crouch ? 1.15 : 1), this.sy * crouchScale);
       ctx.drawImage(cv, Math.round(-cv.width / 2), -cv.height); ctx.restore();
     }
   }
@@ -633,7 +652,7 @@
   CoinPickup.prototype.kind = 'coin'; CoinPickup.prototype.netFields = [];
   CoinPop.prototype.kind = 'coinpop'; CoinPop.prototype.netFields = [];
   YarnBall.prototype.kind = 'yarn'; YarnBall.prototype.netFields = [];
-  Player.prototype.netFields = ['form', 'catIndex', 'name', 'anim', 'dying', 'bubbled', 'out', 'hidden', 'sliding', 'pound', 'poundTimer', 'dashTimer', 'inWater', 'swimKick', 'onGround', 'skidding', 'wallSlide', 'wallDir', 'hurtTimer', 'starTimer', 'growTimer', 'growTo', 'sx', 'sy', 'bubbleT', 'w', 'h'];
+  Player.prototype.netFields = ['form', 'catIndex', 'name', 'anim', 'dying', 'bubbled', 'out', 'hidden', 'sliding', 'pound', 'poundTimer', 'dashTimer', 'inWater', 'swimKick', 'onGround', 'skidding', 'wallSlide', 'wallDir', 'hurtTimer', 'starTimer', 'growTimer', 'growTo', 'sx', 'sy', 'bubbleT', 'w', 'h', 'crouch'];
   // Extra state a guest needs to continue simulating its own cat from a snapshot.
   Player.prototype.predFields = ['vx', 'vy', 'jumpHeld', 'coyote', 'jumpBuffer', 'wasInWater', 'wallCoyote', 'inputLock', 'dashCooldown', 'dashDir', 'airDashUsed', 'prevBottom', 'wasOnGround', 'frozen', 'throwTimer', 'deadTimer'];
   function makeGhost(kind, x, y) {

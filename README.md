@@ -25,6 +25,7 @@ pipes and the flag take everyone along.
 | Jump (hold for higher) | Space / Z / Up |
 | Run + throw yarn | Shift / X |
 | Pounce dash | C / L |
+| Duck / crawl | Down on the ground |
 | Ground pound | Down while in the air |
 | Enter a warp pipe | Down while standing on it |
 | Wall jump | Push into a wall while falling, then jump |

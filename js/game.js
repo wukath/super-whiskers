@@ -778,10 +778,10 @@
       const P = this.painter;
       const rows = [
         ['MOVE', 'ARROWS / WASD'], ['JUMP (HOLD = HIGHER)', 'SPACE / Z / UP'], ['RUN + THROW YARN', 'SHIFT / X'],
-        ['POUNCE DASH', 'C / L'], ['GROUND POUND', 'DOWN IN THE AIR'], ['WALL JUMP', 'PUSH INTO A WALL, THEN JUMP'],
+        ['POUNCE DASH', 'C / L'], ['DUCK / CRAWL', 'DOWN ON THE GROUND'], ['GROUND POUND', 'DOWN IN THE AIR'], ['WALL JUMP', 'PUSH INTO A WALL, THEN JUMP'],
         ['ENTER WARP PIPE', 'DOWN ON TOP OF IT'], ['PAUSE / MUTE / HELP', 'P / M / H'],
       ];
-      rows.forEach(([a, b], i) => { P.text(a, 96, y + i * 16, 1, '#ffe27a', '#3a2a3a'); P.text(b, 300, y + i * 16, 1, '#ffffff', '#3a2a3a'); });
+      rows.forEach(([a, b], i) => { P.text(a, 96, y + i * 15, 1, '#ffe27a', '#3a2a3a'); P.text(b, 300, y + i * 15, 1, '#ffffff', '#3a2a3a'); });
     }
     banner(a, b) {
       const ctx = this.ctx;
@@ -810,7 +810,7 @@
       if ((this.frame % 60) < 40) this.center('ENTER  PLAY SOLO', 176, 2, '#ffffff');
       this.center('O  HOST AN ONLINE CO-OP GAME', 204, 1, '#bfe8ff');
       this.center('J  JOIN A FRIEND\'S ROOM', 218, 1, '#bfe8ff');
-      const lines = ['ARROWS / WASD  MOVE      SPACE / Z  JUMP      SHIFT / X  RUN + THROW YARN', 'C  POUNCE      DOWN IN AIR  GROUND POUND      DOWN ON PIPE  ENTER', 'JUMP OFF WALLS      P PAUSE   M MUTE   H HELP      1 / 2 / 3  START AT A LEVEL'];
+      const lines = ['ARROWS / WASD  MOVE      SPACE / Z  JUMP      SHIFT / X  RUN + THROW YARN', 'C  POUNCE      DOWN  DUCK / CRAWL      DOWN IN AIR  GROUND POUND      DOWN ON PIPE  ENTER', 'JUMP OFF WALLS      P PAUSE   M MUTE   H HELP      1 / 2 / 3  START AT A LEVEL'];
       lines.forEach((l, i) => this.center(l, 256 + i * 12, 1, '#dfe8ff'));
     }
     drawLobby() {
