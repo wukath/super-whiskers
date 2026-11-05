@@ -8,7 +8,7 @@ are generated in code at load time.
 
 ![Super Whiskers](social-preview.png)
 
-![Gameplay](screenshot-gameplay.png)
+![Gameplay](press/trailer.gif) ![Boss fight](press/trailer-boss.gif)
 
 ## Online co-op
 
