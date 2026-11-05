@@ -6,7 +6,9 @@
   const VW = 640, VH = 360;
   const E = ENT;
   const SNAP_EVERY = 2;        // host frames between snapshots (30 Hz)
-  const INTERP_DELAY = 70;     // ms guests render behind the newest snapshot
+  const FRAME_MS = 1000 / 60;
+  const MIN_DELAY = 60, MAX_DELAY = 220;   // ms guests render behind the host, adapted to jitter
+  const QUEUE_TARGET = 2, QUEUE_MAX = 10;  // host-side input jitter buffer (frames)
 
   const newInput = () => ({ left: false, right: false, down: false, run: false, jumpHeld: false, jumpPressed: false, firePressed: false, downPressed: false, dashPressed: false, start: false, counts: [0, 0, 0, 0, 0] });
   // Sounds the guest already played while predicting its own cat.
@@ -142,7 +144,7 @@
       if (d.t === 'J') {
         if (this.state !== 'lobby' || this.slots.length >= 4) { conn.send({ t: 'K', why: this.state !== 'lobby' ? 'GAME IN PROGRESS' : 'ROOM FULL' }); return; }
         const used = this.slots.map(s => s.cat); let cat = d.cat; while (used.includes(cat)) cat = (cat + 1) % 4;
-        const slot = { id: this.nextId++, cat, input: newInput(), conn, lastSeen: this.frame, queue: [], lastSeq: 0, lastQueued: 0 };
+        const slot = { id: this.nextId++, cat, input: newInput(), conn, lastSeen: this.frame, queue: [], lastSeq: 0, lastQueued: 0, buffering: true };
         this.slots.push(slot); conn.send({ t: 'W', id: slot.id }); this.sendLobby(); AUDIO.SFX.appear();
       } else if (d.t === 'C') {
         const slot = this.slots.find(s => s.conn === conn); if (slot && this.state === 'lobby') { slot.cat = ((d.cat % 4) + 4) % 4; this.sendLobby(); }
@@ -150,6 +152,7 @@
         const slot = this.slots.find(s => s.conn === conn); if (!slot) return;
         slot.lastSeen = this.frame;
         for (const r of d.q) if (r.s > (slot.lastQueued || 0)) { slot.queue.push(r); slot.lastQueued = r.s; }
+        if (d.rtt != null) { const p = this.players.find(p => p.id === slot.id); if (p) p.lagFrames = Math.max(0, Math.min(20, Math.round((d.rtt + (d.delay || 0)) / FRAME_MS))); }
       }
     }
     onGuestLeft(conn) {
@@ -158,17 +161,32 @@
       const p = this.players.find(p => p.id === slot.id); if (p) { p.out = true; p.hidden = true; p.bubbled = false; p.dying = false; }
       if (this.state === 'lobby') this.sendLobby();
     }
-    // Each host step consumes one queued input frame per guest, in order, so the
-    // guest's prediction and the host agree. A backlog is drained two at a time.
+    // Drop guests that went silent (closed tabs are not always reported).
     syncRemoteInputs() {
       for (const s of this.slots.slice()) {
         if (s.local) continue;
-        if (this.state !== 'lobby' && this.frame - (s.lastSeen || this.frame) > 300) { try { s.conn.close(); } catch (e) { } this.onGuestLeft(s.conn); continue; }
-        const i = s.input;
-        let r = s.queue.shift();
-        if (r && s.queue.length > 3) { const r2 = s.queue.shift(); r = { s: r2.s, h: r2.h, p: r.p | r2.p }; }
-        if (r) { applyBits(i, r.h, r.p); s.lastSeq = r.s; }
-        else { i.jumpPressed = i.firePressed = i.downPressed = i.dashPressed = i.start = false; }
+        if (this.state !== 'lobby' && this.frame - (s.lastSeen || this.frame) > 300) { try { s.conn.close(); } catch (e) { } this.onGuestLeft(s.conn); }
+      }
+    }
+    // Input frames to apply for a guest this tick: normally one, none while the
+    // jitter buffer refills, two to catch up on a backlog. Skipping or doubling the
+    // guest's own physics step (instead of inventing input) keeps the host's copy
+    // identical to what the guest predicted.
+    takeInputs(slot) {
+      const q = slot.queue;
+      if (slot.buffering) { if (q.length >= QUEUE_TARGET) slot.buffering = false; else return []; }
+      if (q.length === 0) { slot.buffering = true; return []; }
+      const n = q.length > QUEUE_TARGET + 3 ? 2 : 1;
+      return q.splice(0, n);
+    }
+    stepPlayer(p) {
+      const slot = this.slots.find(s => s.id === p.id);
+      this.curPid = p.id;
+      if (!slot || slot.local || !slot.queue) { p.update(this); return; }
+      for (const r of this.takeInputs(slot)) {
+        applyBits(slot.input, r.h, r.p); slot.lastSeq = r.s; if (r.ts) slot.lastTs = r.ts;
+        p.update(this);
+        if (this.state !== 'play') break;
       }
     }
     clearPressed() { for (const s of this.slots) { const i = s.input; i.jumpPressed = i.firePressed = i.downPressed = i.dashPressed = i.start = false; } }
@@ -189,7 +207,8 @@
         this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th) };
         this.state = 'intro'; this.stateTimer = 0;
       } else if (d.t === 'S') {
-        d.recv = performance.now(); this.snaps.push(d); if (this.snaps.length > 6) this.snaps.shift();
+        d.recv = performance.now(); this.snaps.push(d); if (this.snaps.length > 12) this.snaps.shift();
+        this.trackClock(d);
         if (d.w !== this.level.name && this.worlds[d.w]) { this.setWorld(d.w); this.ghosts.clear(); this.fxLocal = []; }
         for (const ch of d.tl) this.applyTile(this.level, ch);
         for (const f of d.fx) { const e = E.fromFx(f, this); if (e) this.fxLocal.push(e); }
@@ -201,10 +220,23 @@
     onHostLeft() { if (this.mode === 'guest') { this.mode = 'solo'; this.netMsg = 'HOST LEFT'; this.state = 'title'; this.net.close(); this.loadLevel(); } }
     // One input record per frame; the last few are resent so a late packet is harmless.
     sendInput() {
-      const rec = { s: ++this.seq, h: heldBits(this.input), p: pressedBits(this.input) };
+      const rec = { s: ++this.seq, h: heldBits(this.input), p: pressedBits(this.input), ts: Math.round(performance.now()) };
       this.pending.push(rec); if (this.pending.length > 120) this.pending.shift();
-      this.net.send({ t: 'I', q: this.pending.slice(-3) });
+      this.net.send({ t: 'I', q: this.pending.slice(-3), rtt: this.rtt == null ? undefined : Math.round(this.rtt), delay: Math.round(this.delay || MIN_DELAY) });
       return rec;
+    }
+    // Estimate the host's clock offset (min over a window, so it tracks the fastest
+    // packets) and how jittery arrivals are, which sets the interpolation delay.
+    trackClock(d) {
+      const off = d.recv - d.f * FRAME_MS;
+      this.offs = this.offs || []; this.offs.push(off); if (this.offs.length > 90) this.offs.shift();
+      const minOff = Math.min(...this.offs), maxOff = Math.max(...this.offs.slice(-45));
+      this.hostOffset = this.hostOffset == null ? minOff : this.hostOffset + (minOff - this.hostOffset) * 0.1;
+      const jitter = maxOff - minOff;
+      const want = Math.max(MIN_DELAY, Math.min(MAX_DELAY, jitter + SNAP_EVERY * FRAME_MS * 1.5));
+      this.delay = this.delay == null ? want : this.delay + (want - this.delay) * 0.05;
+      const mine = d.pl.find(p => p.id === this.myId);
+      if (mine && mine.ts) { const r = d.recv - mine.ts; this.rtt = this.rtt == null ? r : this.rtt * 0.8 + r * 0.2; }
     }
     // A stand-in for the game that lets Player.update run against local state
     // without spawning anything authoritative.
@@ -258,12 +290,14 @@
       this.fxLocal = this.fxLocal.filter(e => !e.remove);
       if (this.snaps.length === 0) return;
       if (performance.now() - this.snaps[this.snaps.length - 1].recv > 5000 && this.state !== 'lobby') { this.onHostLeft(); return; }
-      const now = performance.now() - INTERP_DELAY;
+      // render at a host-frame time slightly in the past so there is always a pair to blend
+      const fNow = (performance.now() - this.hostOffset - (this.delay || MIN_DELAY)) / FRAME_MS;
       let s0 = this.snaps[this.snaps.length - 1], s1 = s0;
-      for (let i = this.snaps.length - 1; i > 0; i--) if (this.snaps[i - 1].recv <= now) { s0 = this.snaps[i - 1]; s1 = this.snaps[i]; break; }
-      const a = s1 === s0 ? 1 : Math.max(0, Math.min(1, (now - s0.recv) / Math.max(1, s1.recv - s0.recv)));
+      for (let i = this.snaps.length - 1; i > 0; i--) if (this.snaps[i - 1].f <= fNow) { s0 = this.snaps[i - 1]; s1 = this.snaps[i]; break; }
+      if (s0 === s1 && this.snaps.length > 1 && this.snaps[0].f > fNow) { s0 = this.snaps[0]; s1 = this.snaps[1]; }
+      const a = s1 === s0 ? 1 : Math.max(0, Math.min(1, (fNow - s0.f) / Math.max(1, s1.f - s0.f)));
       const lerp = (x, y) => x + (y - x) * a;
-      this.cam.x = lerp(s0.cam, s1.cam);
+      const hostCam = lerp(s0.cam, s1.cam);
       this.lives = s1.lives; this.coins = s1.coins; this.scoreVal = s1.score; this.time = s1.time; this.bumps = s1.bm; this.flagY = s1.fy; this.clearTimer = s1.ct; this.warp = s1.warp;
       if (s1.shake && this.shakeT === 0) { this.shakeT = 2; this.shakeMag = s1.shake; }
       const prevPl = new Map(s0.pl.map(p => [p.id, p]));
@@ -288,6 +322,13 @@
       }
       for (const id of [...this.ghosts.keys()]) if (!seen.has(id)) this.ghosts.delete(id);
       this.entities = [...this.ghosts.values(), ...this.fxLocal];
+      // camera: follow the group like the host does, but using our predicted cat
+      if (this.state === 'play' && this.me) {
+        const group = this.players.filter(p => p.alive);
+        if (group.length) { const mean = group.reduce((t, p) => t + p.cx, 0) / group.length; this.cam.x += (mean - 300 - this.cam.x) * 0.12; }
+        this.cam.x = Math.max(0, Math.min(this.levelW - VW, this.cam.x));
+        if (Math.abs(this.cam.x - hostCam) > 48) this.cam.x = hostCam;
+      } else this.cam.x = hostCam;
     }
     // ----- online: host side -----
     snapshot() {
@@ -302,7 +343,7 @@
       }
       const pl = this.players.map(p => {
         const o = pack(p); o.id = p.id;
-        const slot = this.slots.find(s => s.id === p.id); o.ack = slot ? (slot.lastSeq || 0) : 0;
+        const slot = this.slots.find(s => s.id === p.id); o.ack = slot ? (slot.lastSeq || 0) : 0; o.ts = slot ? slot.lastTs : undefined;
         o.pf = {}; for (const k of E.Player.prototype.predFields) o.pf[k] = p[k];
         return o;
       });
@@ -321,7 +362,7 @@
     startGame(stage) {
       this.lives = 3; this.scoreVal = 0; this.coins = 0; this.stage = Math.max(0, Math.min(LEVELS.STAGES.length - 1, stage || 0));
       this.state = 'intro'; this.stateTimer = 0;
-      for (const s of this.slots) s.lastSeen = this.frame;
+      for (const s of this.slots) { s.lastSeen = this.frame; s.queue = []; s.buffering = true; }
       this.loadLevel();
     }
     buildWorlds() {
@@ -484,7 +525,7 @@
     }
     updatePlay() {
       this.updatePlatforms();
-      for (const p of this.players) { this.curPid = p.id; p.update(this); }
+      for (const p of this.players) this.stepPlayer(p);
       this.curPid = 0;
       if (this.state !== 'play') return;
       this.updateEntities();
@@ -526,13 +567,18 @@
       if (f) for (const p of this.alivePlayers()) if (p.x + p.w > f.c * T + 14 && p.y < f.r * T) { this.startFlag(p); break; }
     }
     playerCollisions(p) {
+      const lag = p.lagFrames || 0;
       for (const e of this.entities) {
         if (e.remove || !e.active) continue;
         if (e.isEnemy) {
-          if (e.flipDead || e.squishTimer > 0 || !p.overlaps(e)) continue;
+          if (e.flipDead || e.squishTimer > 0) continue;
+          // Remote players saw this enemy where it was `lag` frames ago; judge the hit there.
+          let box = e;
+          if (lag > 0 && e.hist && e.hist.length) { const h = e.hist[Math.max(0, e.hist.length - 1 - lag)]; box = { x: h[0], y: h[1], w: e.w, h: e.h }; }
+          if (!p.overlaps(box)) continue;
           const falling = p.vy > 0 || p.inWater || p.pounding;
           if (p.starTimer > 0 || p.dashing) { e.flipKill(this, p.dashing ? p.dashDir : p.facing); AUDIO.SFX.kick(); this.shake(4, 2); }
-          else if (falling && p.prevBottom <= e.y + 10) { e.stomp(this, p); p.bounce(); }
+          else if (falling && p.prevBottom <= box.y + 10) { e.stomp(this, p); p.bounce(); }
           else e.touch(this, p);
         } else if (e.isItem) {
           if (e.emerge <= 0 && p.overlaps(e)) e.collect(this, p);

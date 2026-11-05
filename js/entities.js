@@ -346,6 +346,7 @@
       if (this.squishTimer > 0) { this.squishTimer--; if (this.squishTimer === 0) { this.remove = true; game.add(new Poof(this.cx, this.bottom - 6, 1)); } return; }
       this.behave(game);
       if (this.y > game.levelH + 60) this.remove = true;
+      if (game.players.length > 1) { (this.hist = this.hist || []).push([this.x, this.y]); if (this.hist.length > 24) this.hist.shift(); }
     }
     flipKill(game, dir) { this.flipDead = true; this.vy = -6; this.vx = (dir || 1) * 1.5; game.score(this.points || 100, this.x, this.y); game.add(new Poof(this.cx, this.y + this.h / 2, 1.2)); }
     drawImg(ctx, cam, img, ox = 0, oy = 0) {

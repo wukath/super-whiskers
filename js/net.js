@@ -37,9 +37,17 @@
       });
       peer.on('error', e => { this.error = e.type === 'peer-unavailable' ? 'ROOM NOT FOUND' : (e.type || String(e)); this.status = 'error'; });
     }
-    broadcast(msg) { for (const c of this.conns) if (c.open) { try { c.send(msg); } catch (e) { } } }
-    send(msg) { if (this.conn && this.conn.open) { try { this.conn.send(msg); } catch (e) { } } }
+    // Debug: ?lag=120&jitter=40 delays every packet to rehearse a bad connection.
+    deliver(c, msg) {
+      const lag = Net.lag || 0, jit = Net.jitter || 0;
+      const go = () => { if (c.open) { try { c.send(msg); } catch (e) { } } };
+      if (lag > 0 || jit > 0) setTimeout(go, lag + Math.random() * jit); else go();
+    }
+    broadcast(msg) { for (const c of this.conns) this.deliver(c, msg); }
+    send(msg) { if (this.conn) this.deliver(this.conn, msg); }
     close() { this.status = 'closed'; try { if (this.peer) this.peer.destroy(); } catch (e) { } this.peer = null; this.conns = []; this.conn = null; this.role = null; }
   }
+  const q = new URLSearchParams(location.search);
+  Net.lag = +q.get('lag') || 0; Net.jitter = +q.get('jitter') || 0;
   window.NET = { Net, makeCode, PREFIX };
 })();
