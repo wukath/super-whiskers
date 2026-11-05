@@ -9,7 +9,7 @@
     walkMax: 2.6, runMax: 4.6, accel: 0.16, airAccel: 0.14, decel: 0.3, skidDecel: 0.5,
     jumpV: -10.2, runJumpBonus: -1.2,
     wallSlideMax: 1.4, wallJumpV: -9.6, wallJumpVx: 5.2,
-    dashSpeed: 7.5, dashFrames: 13, dashCooldown: 22,
+    dashSpeed: 7, dashFrames: 12, dashCooldown: 22, dashExitSpeed: 2.6,
     poundFreeze: 8, poundSpeed: 13,
     bounceV: -19.5, bouncePoundV: -21,
     waterGravity: 0.08, waterMaxFall: 1.1, swimV: -3.0, waterMax: 1.9, waterAccel: 0.1, surfaceJumpV: -8.5,
@@ -134,6 +134,7 @@
       if (this.dashing) {
         this.dashTimer--;
         this.vx = this.dashDir * PHYS.dashSpeed; this.vy = Math.min(this.vy, 0) * 0.5;
+        if (this.dashTimer === 0) this.vx = this.dashDir * PHYS.dashExitSpeed;
         if (this.t % 2 === 0) game.add(new Afterimage(this));
         this.moveAndCollide(game);
         if (this.hitWall) { game.breakWall(this.wallCol, Math.floor(this.y / T), Math.floor((this.y + this.h - 1) / T), this.dashDir); this.dashTimer = 0; this.vx = -this.dashDir * 1.5; game.shake(4, 2); }
@@ -414,7 +415,7 @@
         if (this.respawn > 0) { if (--this.respawn === 0) { this.x = this.x0; this.y = this.y0; this.vy = 0; this.fallTimer = 0; this.active = true; } }
         else if (this.fallTimer > 0 || this.riders > 0) {
           this.fallTimer++;
-          if (this.fallTimer > 22) { this.vy = Math.min(this.vy + 0.45, 9); this.y += this.vy; }
+          if (this.fallTimer > 40) { this.vy = Math.min(this.vy + 0.45, 9); this.y += this.vy; }
           else this.x = this.x0 + ((this.fallTimer % 4) < 2 ? 1 : -1);
           if (this.y > game.levelH + 40) { this.active = false; this.respawn = 150; }
         }

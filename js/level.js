@@ -115,14 +115,14 @@
     fill(64, 64, 5, 8, 'X'); coins(66, 7, 2);
     // falling platforms over a long pit
     pit(68, 79);
-    movers.push({ type: 'fall', c: 68, r: 7 }, { type: 'fall', c: 71, r: 6 }, { type: 'fall', c: 74, r: 7 }, { type: 'fall', c: 77, r: 6 });
-    coins(69, 4, 1); coins(75, 4, 1);
+    movers.push({ type: 'fall', c: 68, r: 7 }, { type: 'fall', c: 72, r: 6 }, { type: 'fall', c: 76, r: 7 });
+    coins(70, 4, 1); coins(74, 3, 1); coins(78, 4, 1);
     put(83, 8, 'm'); put(85, 8, 'm'); put(87, 8, 'h'); row(84, 5, 'B?SB');
     stairsUp(90, 3); pit(93, 94); stairsDown(95, 3);
     // vertical lifts across a pit
     pit(100, 112);
-    movers.push({ type: 'vlift', c: 101, r: 8, range: 4 }, { type: 'vlift', c: 106, r: 8, range: 4, phase: Math.PI }, { type: 'vlift', c: 110, r: 8, range: 4 });
-    coins(103, 3, 2, 4); coins(108, 2, 2, 2);
+    movers.push({ type: 'vlift', c: 101, r: 8, range: 3 }, { type: 'vlift', c: 105, r: 8, range: 3, phase: Math.PI }, { type: 'vlift', c: 109, r: 8, range: 3 });
+    coins(103, 4, 1); coins(107, 4, 1); coins(111, 4, 1);
     // hidden tunnel
     put(118, 9, 'X'); for (let c = 118; c <= 124; c++) put(c, 10, '.'); coins(119, 10, 5); put(124, 9, 'X'); put(121, 4, '!');
     put(128, 8, '^'); coins(126, 2, 6); put(131, 8, 'h'); put(134, 8, 'm');
