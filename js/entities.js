@@ -59,8 +59,10 @@
   // ---------------- Player ----------------
   const FORMS = { small: { w: 20, h: 36 }, big: { w: 20, h: 52 }, yarn: { w: 20, h: 52 } };
   class Player extends Entity {
-    constructor(x, y) {
+    constructor(x, y, opts = {}) {
       super(x, y, FORMS.small.w, FORMS.small.h);
+      this.input = opts.input || null; this.catIndex = opts.cat || 0; this.id = opts.id || 0; this.name = opts.name || SPRITES.CAT_NAMES[this.catIndex];
+      this.bubbled = false; this.out = false; this.hidden = false; this.bubbleT = 0;
       this.form = 'small'; this.facing = 1; this.anim = 0; this.hurtTimer = 0; this.starTimer = 0; this.growTimer = 0; this.growTo = null;
       this.dying = false; this.deadTimer = 0; this.inWater = false; this.wasInWater = false; this.jumpHeld = false; this.coyote = 0; this.jumpBuffer = 0; this.skidding = false; this.sliding = false; this.frozen = false;
       this.sx = 1; this.sy = 1; this.wallDir = 0; this.wallSlide = false; this.wallCoyote = 0; this.inputLock = 0;
@@ -75,10 +77,13 @@
       this.y += old.h - nu.h; this.h = nu.h; this.w = nu.w; this.form = f;
     }
     squash(sx, sy) { this.sx = sx; this.sy = sy; }
+    get alive() { return !this.dying && !this.bubbled && !this.out; }
     update(game) {
-      const inp = game.input;
+      const inp = this.input || game.input;
       this.t++;
       this.sx += (1 - this.sx) * 0.18; this.sy += (1 - this.sy) * 0.18;
+      if (this.bubbled) { this.updateBubble(game); return; }
+      if (this.out) return;
       if (this.dying) {
         this.deadTimer++;
         if (this.deadTimer > 20) { this.vy = Math.min(this.vy + 0.5, 10); this.y += this.vy; }
@@ -198,8 +203,8 @@
       if (this.swimKick > 0) this.swimKick--;
 
       // yarn ball
-      if (inp.firePressed && this.form === 'yarn' && game.countYarn() < 2) {
-        game.add(new YarnBall(this.facing > 0 ? this.x + this.w : this.x - 12, this.y + 14, this.facing));
+      if (inp.firePressed && this.form === 'yarn' && game.countYarn(this) < 2) {
+        game.add(new YarnBall(this.facing > 0 ? this.x + this.w : this.x - 12, this.y + 14, this.facing, this));
         this.throwTimer = 10; AUDIO.SFX.yarn();
       }
       if (this.throwTimer > 0) this.throwTimer--;
@@ -225,8 +230,9 @@
       }
 
       if (this.x < game.cam.x) { this.x = game.cam.x; if (this.vx < 0) this.vx = 0; }
+      if (game.players.length > 1 && this.x + this.w > game.cam.x + 640) { this.x = game.cam.x + 640 - this.w; if (this.vx > 0) this.vx = 0; }
       if (this.x + this.w > game.levelW) { this.x = game.levelW - this.w; this.vx = 0; }
-      if (this.y > game.levelH + 40) game.killPlayer(true);
+      if (this.y > game.levelH + 40) game.killPlayer(this, true);
       if (this.onGround || this.inWater) this.anim += Math.abs(this.vx) * 0.09 + (this.inWater ? 0.05 : 0);
     }
     // Land on moving platforms and bouncy mushrooms (one-way, from above).
@@ -256,7 +262,7 @@
     // Enemy contact: stomp if we're falling onto it, otherwise take damage.
     hurt(game) {
       if (this.hurtTimer > 0 || this.starTimer > 0 || this.dying || this.growTimer > 0) return;
-      if (this.form === 'small') { game.killPlayer(false); return; }
+      if (this.form === 'small') { game.killPlayer(this, false); return; }
       this.growTo = 'small'; this.growTimer = 40; this.hurtTimer = 150; AUDIO.SFX.hurt(); game.shake(6, 2);
     }
     grow(game, to) {
@@ -265,7 +271,7 @@
     }
     bounce() { this.vy = -7; this.jumpHeld = true; this.pound = null; this.squash(0.8, 1.2); }
     sprite(game) {
-      const c = S().cat;
+      const c = S().cats[this.catIndex] || S().cat;
       let set;
       if (this.starTimer > 0 && (Math.floor(this.t / 3) % 4) !== 3) {
         const pals = this.big ? c.starBig : c.starSmall;
@@ -286,7 +292,35 @@
       if (Math.abs(this.vx) > 0.3) return set.walk[Math.floor(this.anim) % 4];
       return set.idle;
     }
+    // Dead teammate floating back toward the nearest living cat.
+    updateBubble(game) {
+      this.bubbleT++;
+      const target = game.nearestAlive(this);
+      if (target) {
+        const tx = target.cx - 40 * Math.sign(target.cx - this.cx || 1), ty = target.y - 50;
+        this.x += Math.max(-1.2, Math.min(1.2, (tx - this.cx) * 0.03)); this.y += Math.max(-1, Math.min(1, (ty - this.y) * 0.03));
+      }
+      if (this.x < game.cam.x + 22) this.x = game.cam.x + 22;
+      if (this.x + this.w > game.cam.x + 618) this.x = game.cam.x + 618 - this.w;
+      if (this.y < 20) this.y = 20;
+    }
+    popBubble(game) {
+      this.bubbled = false; this.dying = false; this.deadTimer = 0; this.hurtTimer = 120; this.vx = 0; this.vy = -4; this.pound = null; this.dashTimer = 0;
+      if (this.form !== 'small') this.setForm('small');
+      this.squash(0.7, 1.3); AUDIO.SFX.appear(); game.add(new Sparkle(this.cx, this.y + 10, '#bfe8ff'));
+    }
+    drawBubble(ctx, cam) {
+      const set = (S().cats[this.catIndex] || S().cat).small, cv = set.idle.r;
+      const bx = Math.round(this.cx - cam.x), by = Math.round(this.y + 20 + Math.sin(this.bubbleT * 0.08) * 3 - cam.y);
+      ctx.save(); ctx.translate(bx, by); ctx.scale(0.75, 0.75); ctx.drawImage(cv, -cv.width / 2, -cv.height / 2 - 2); ctx.restore();
+      ctx.globalAlpha = 0.35; ctx.fillStyle = '#bfe8ff'; ctx.beginPath(); ctx.arc(bx, by, 24, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.9; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx, by, 24, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(bx - 12, by - 16, 5, 3); ctx.fillRect(bx - 15, by - 12, 3, 5);
+      ctx.globalAlpha = 1;
+    }
     draw(ctx, cam, game) {
+      if (this.out || this.hidden) return;
+      if (this.bubbled) { this.drawBubble(ctx, cam); return; }
       if (this.hurtTimer > 0 && (Math.floor(this.t / 3) % 2) === 0 && !this.dying) return;
       const img = this.sprite(game);
       const sh = TILES.shadow(12);
@@ -294,6 +328,7 @@
       let cv = this.facing < 0 ? img.l : img.r;
       if (this.wallSlide) cv = this.wallDir > 0 ? img.l : img.r;
       const bx = this.cx - cam.x, by = this.bottom - cam.y;
+      if (game && game.players.length > 1 && !this.dying) { const row = game.players.indexOf(this) % 2; game.painter.text(this.name, Math.round(bx - PX.textWidth(this.name, 1) / 2), Math.round(by - cv.height - 12 - row * 11), 1, '#ffffff', '#3a2a3a'); }
       if (Math.abs(this.sx - 1) < 0.02 && Math.abs(this.sy - 1) < 0.02 && !this.pound) { ctx.drawImage(cv, Math.round(bx - cv.width / 2), Math.round(by - cv.height)); return; }
       ctx.save(); ctx.translate(Math.round(bx), Math.round(by));
       if (this.pound === 'start') ctx.rotate(Math.sin(this.poundTimer * 0.8) * 0.3);
@@ -504,7 +539,7 @@
 
   // ---------------- Projectiles & effects ----------------
   class YarnBall extends Entity {
-    constructor(x, y, dir) { super(x, y, 10, 10); this.vx = 6.5 * dir; this.vy = 1; this.isYarn = true; this.life = 110; }
+    constructor(x, y, dir, owner) { super(x, y, 10, 10); this.vx = 6.5 * dir; this.vy = 1; this.isYarn = true; this.life = 110; this.owner = owner; }
     update(game) {
       this.t++; this.life--;
       this.vy = Math.min(this.vy + 0.5, 9);
@@ -519,7 +554,7 @@
     draw(ctx, cam) { const img = (Math.floor(this.t / 3) % 2) ? S().extras.YARN_BALL2 : S().extras.YARN_BALL; ctx.drawImage(img.r, Math.round(this.x - 1 - cam.x), Math.round(this.y - 1 - cam.y)); }
   }
   class Puff extends Entity {
-    constructor(x, y) { super(x, y, 0, 0); this.life = 14; }
+    constructor(x, y) { super(x, y, 0, 0); this.life = 14; this.fxd = ['puff', x, y]; }
     update() { if (--this.life <= 0) this.remove = true; }
     draw(ctx, cam) {
       const r = 3 + (14 - this.life) * 0.6;
@@ -530,7 +565,7 @@
   }
   // Enemy defeat: expanding ring plus a few stars.
   class Poof extends Entity {
-    constructor(x, y, s = 1) { super(x, y, 0, 0); this.life = 18; this.s = s; }
+    constructor(x, y, s = 1) { super(x, y, 0, 0); this.life = 18; this.s = s; this.fxd = ['poof', x, y, s]; }
     update() { if (--this.life <= 0) this.remove = true; }
     draw(ctx, cam) {
       const k = 1 - this.life / 18, r = (4 + k * 18) * this.s;
@@ -545,7 +580,7 @@
   // Ground dust: a few soft puffs drifting in a direction.
   class Dust extends Entity {
     constructor(x, y, dir, n = 2) {
-      super(x, y, 0, 0); this.life = 22;
+      super(x, y, 0, 0); this.life = 22; this.fxd = ['dust', x, y, dir, n];
       this.parts = [];
       for (let i = 0; i < n + 1; i++) this.parts.push({ x: (Math.random() - 0.5) * 6, y: -Math.random() * 3, vx: dir * (0.6 + Math.random() * 0.8) + (dir === 0 ? (Math.random() - 0.5) * 1.6 : 0), vy: -0.4 - Math.random() * 0.6, r: 2 + Math.random() * 2 });
     }
@@ -557,7 +592,7 @@
     }
   }
   class Sparkle extends Entity {
-    constructor(x, y, col = '#ffd23f') { super(x, y, 0, 0); this.life = 20; this.col = col; this.parts = []; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.random() * 0.5, sp = 1.5 + Math.random(); this.parts.push({ x: 0, y: 0, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1 }); } }
+    constructor(x, y, col = '#ffd23f') { super(x, y, 0, 0); this.life = 20; this.col = col; this.fxd = ['sparkle', x, y, col]; this.parts = []; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.random() * 0.5, sp = 1.5 + Math.random(); this.parts.push({ x: 0, y: 0, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1 }); } }
     update() { this.life--; for (const p of this.parts) { p.x += p.vx; p.y += p.vy; p.vy += 0.08; } if (this.life <= 0) this.remove = true; }
     draw(ctx, cam) {
       ctx.globalAlpha = this.life / 20;
@@ -566,25 +601,68 @@
     }
   }
   class Afterimage extends Entity {
-    constructor(player) { super(player.x, player.y, 0, 0); this.img = player.sprite(); this.facing = player.facing; this.w = player.w; this.h = player.h; this.life = 10; }
+    constructor(player) { super(player.x, player.y, 0, 0); this.img = player.sprite(); this.facing = player.facing; this.w = player.w; this.h = player.h; this.life = 10; this.fxd = ['after', player.id]; }
     update() { if (--this.life <= 0) this.remove = true; }
     draw(ctx, cam) { ctx.globalAlpha = this.life / 10 * 0.45; const cv = this.facing < 0 ? this.img.l : this.img.r; ctx.drawImage(cv, Math.round(this.x + this.w / 2 - cv.width / 2 - cam.x), Math.round(this.y + this.h - cv.height - cam.y)); ctx.globalAlpha = 1; }
   }
   class Fragment extends Entity {
-    constructor(x, y, vx, vy, rock) { super(x, y, 10, 10); this.vx = vx; this.vy = vy; this.rock = rock; }
+    constructor(x, y, vx, vy, rock) { super(x, y, 10, 10); this.vx = vx; this.vy = vy; this.rock = rock; this.fxd = ['frag', x, y, vx, vy, rock ? 1 : 0]; }
     update(game) { this.t++; this.vy += 0.5; this.x += this.vx; this.y += this.vy; if (this.y > game.levelH + 40) this.remove = true; }
     draw(ctx, cam) { ctx.save(); ctx.translate(Math.round(this.x - cam.x + 5), Math.round(this.y - cam.y + 5)); ctx.rotate(this.t * 0.25 * Math.sign(this.vx)); ctx.drawImage(this.rock ? S().rockFrag : S().frag, -5, -5); ctx.restore(); }
   }
   class Splash extends Entity {
-    constructor(x, y) { super(x, y, 0, 0); this.life = 18; this.drops = []; for (let i = 0; i < 7; i++) this.drops.push({ x: 0, y: 0, vx: (i - 3) * 0.9 + (Math.random() - 0.5), vy: -3 - Math.random() * 2.5 }); }
+    constructor(x, y) { super(x, y, 0, 0); this.life = 18; this.fxd = ['splash', x, y]; this.drops = []; for (let i = 0; i < 7; i++) this.drops.push({ x: 0, y: 0, vx: (i - 3) * 0.9 + (Math.random() - 0.5), vy: -3 - Math.random() * 2.5 }); }
     update() { this.life--; for (const d of this.drops) { d.vy += 0.35; d.x += d.vx; d.y += d.vy; } if (this.life <= 0) this.remove = true; }
     draw(ctx, cam) { ctx.fillStyle = '#e8f8ff'; for (const d of this.drops) { if (d.y > 2) continue; ctx.fillRect(Math.round(this.x + d.x - cam.x), Math.round(this.y + d.y - cam.y), 2, 3); } }
   }
   class ScorePop extends Entity {
-    constructor(x, y, text) { super(x, y, 0, 0); this.text = text; this.life = 40; }
+    constructor(x, y, text) { super(x, y, 0, 0); this.text = text; this.life = 40; this.fxd = ['score', x, y, text]; }
     update() { this.life--; this.y -= 0.8; if (this.life <= 0) this.remove = true; }
     draw(ctx, cam, game) { game.painter.text(this.text, Math.round(this.x - cam.x), Math.round(this.y - cam.y), 1, '#ffffff', '#3a2a3a'); }
   }
 
-  window.ENT = { PHYS, Entity, Player, Mouse, Hedgehog, Fish, Platform, Bouncer, FishItem, YarnItem, StarItem, OneUp, CoinPickup, CoinPop, YarnBall, Puff, Poof, Dust, Sparkle, Afterimage, Fragment, Splash, ScorePop };
+  // Fields a host sends for each entity kind; x/y/facing/t are always sent.
+  Mouse.prototype.kind = 'mouse'; Mouse.prototype.netFields = ['squishTimer', 'flipDead'];
+  Hedgehog.prototype.kind = 'hedgehog'; Hedgehog.prototype.netFields = ['state', 'squishTimer', 'flipDead', 'wake', 'h'];
+  Fish.prototype.kind = 'fish'; Fish.prototype.netFields = ['flipDead'];
+  Platform.prototype.netFields = ['active', 'kind'];
+  Bouncer.prototype.kind = 'bouncer'; Bouncer.prototype.netFields = ['squishTimer'];
+  FishItem.prototype.kind = 'fishitem'; YarnItem.prototype.kind = 'yarnitem'; StarItem.prototype.kind = 'staritem'; OneUp.prototype.kind = 'oneup';
+  Item.prototype.netFields = ['emerge', 'startY'];
+  CoinPickup.prototype.kind = 'coin'; CoinPickup.prototype.netFields = [];
+  CoinPop.prototype.kind = 'coinpop'; CoinPop.prototype.netFields = [];
+  YarnBall.prototype.kind = 'yarn'; YarnBall.prototype.netFields = [];
+  Player.prototype.netFields = ['form', 'catIndex', 'name', 'anim', 'dying', 'bubbled', 'out', 'hidden', 'sliding', 'pound', 'poundTimer', 'dashTimer', 'inWater', 'swimKick', 'onGround', 'skidding', 'wallSlide', 'wallDir', 'hurtTimer', 'starTimer', 'growTimer', 'growTo', 'sx', 'sy', 'bubbleT', 'w', 'h'];
+  function makeGhost(kind, x, y) {
+    switch (kind) {
+      case 'mouse': return new Mouse(x, y);
+      case 'hedgehog': return new Hedgehog(x, y);
+      case 'fish': return new Fish(x, y);
+      case 'bouncer': return new Bouncer(x, y);
+      case 'fishitem': return new FishItem(x, y);
+      case 'yarnitem': return new YarnItem(x, y);
+      case 'staritem': return new StarItem(x, y);
+      case 'oneup': return new OneUp(x, y);
+      case 'coin': return new CoinPickup(x, y);
+      case 'coinpop': return new CoinPop(x, y);
+      case 'yarn': return new YarnBall(x, y, 1, null);
+      case 'hlift': case 'vlift': case 'fall': case 'log': return new Platform({ c: 0, r: 0, type: kind });
+    }
+    return null;
+  }
+  function fromFx(d, game) {
+    switch (d[0]) {
+      case 'puff': return new Puff(d[1], d[2]);
+      case 'poof': return new Poof(d[1], d[2], d[3]);
+      case 'dust': return new Dust(d[1], d[2], d[3], d[4]);
+      case 'sparkle': return new Sparkle(d[1], d[2], d[3]);
+      case 'after': { const p = game.players.find(p => p.id === d[1]); return p ? new Afterimage(p) : null; }
+      case 'frag': return new Fragment(d[1], d[2], d[3], d[4], !!d[5]);
+      case 'splash': return new Splash(d[1], d[2]);
+      case 'score': return new ScorePop(d[1], d[2], d[3]);
+    }
+    return null;
+  }
+
+  window.ENT = { makeGhost, fromFx, PHYS, Entity, Player, Mouse, Hedgehog, Fish, Platform, Bouncer, FishItem, YarnItem, StarItem, OneUp, CoinPickup, CoinPop, YarnBall, Puff, Poof, Dust, Sparkle, Afterimage, Fragment, Splash, ScorePop };
 })();

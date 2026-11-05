@@ -132,5 +132,9 @@
     return muted;
   }
 
-  window.AUDIO = { ensure, SFX, MUSIC, toggleMute, isMuted: () => muted };
+  // Let a host forward every effect it plays to connected guests.
+  const hooks = { onSfx: null };
+  for (const k of Object.keys(SFX)) { const orig = SFX[k]; SFX[k] = () => { orig(); if (hooks.onSfx) hooks.onSfx(k); }; }
+
+  window.AUDIO = { ensure, SFX, MUSIC, toggleMute, isMuted: () => muted, hooks };
 })();

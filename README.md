@@ -8,6 +8,15 @@ are generated in code at load time.
 
 ![Gameplay](screenshot-gameplay.png)
 
+## Online co-op
+
+Press **O** on the title screen to host a room; friends press **J** and type the 4-letter
+code, or open the `?room=CODE` link shown in the lobby. Up to four cats (Whiskers, Mochi,
+Biscuit, Blue — pick with ←/→ in the lobby). The host's browser runs the game and streams
+state to the others over WebRTC (PeerJS), so there is no game server. Lives, coins and
+score are shared; a cat that dies floats back as a bubble that a teammate can pop; warp
+pipes and the flag take everyone along.
+
 ## Controls
 
 | Action | Keys |
@@ -21,6 +30,7 @@ are generated in code at load time.
 | Wall jump | Push into a wall while falling, then jump |
 | Pause / mute | P / M |
 | Start at a level | 1 / 2 / 3 on the title screen |
+| Host / join online | O / J on the title screen |
 
 ## Levels
 
@@ -43,4 +53,5 @@ Open `index.html` in a browser. That's it.
 - `js/level.js` — level definitions and parser
 - `js/entities.js` — player physics, enemies, items, platforms, effects
 - `js/audio.js` — synthesized sound effects and music
-- `js/game.js` — game loop, camera, HUD, states
+- `js/net.js` — PeerJS room hosting/joining
+- `js/game.js` — game loop, camera, HUD, states, co-op and netcode

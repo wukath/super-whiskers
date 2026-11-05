@@ -178,13 +178,29 @@
       h: rows.length + 2, w: rows[0].length,
     };
   }
-  const cat = {
-    small: catSet(MAPS.CAT, catPal),
-    big: catSet(bigRows(), catPal),
-    yarn: catSet(bigRows(), yarnPal),
-    starSmall: starPals.map(p => catSet(MAPS.CAT, p)),
-    starBig: starPals.map(p => catSet(bigRows(), p)),
-  };
+  // The four playable cats are palette swaps of the same pixel map.
+  const mochiPal = Object.assign({}, catPal, { K: '#15121c', H: '#5e5870', O: '#3c3748', D: '#2b2736', R: '#201c2a', S: '#4c4660', G: '#ffd25e', B: '#ff6b8a' });
+  const biscuitPal = Object.assign({}, catPal, { K: '#5a3a2a', H: '#fff3dc', O: '#f7e2bc', D: '#e5bf90', R: '#cf9a6a', S: '#ee8e4a', G: '#4f9fe0', B: '#7ad17a' });
+  const bluePal = Object.assign({}, catPal, { K: '#2a2f44', H: '#d0d6e8', O: '#a2abc6', D: '#7f89a6', R: '#636c88', S: '#737ea0', G: '#ffb347', B: '#ffd25e' });
+  const CAT_PALS = [catPal, mochiPal, biscuitPal, bluePal];
+  const CAT_NAMES = ['WHISKERS', 'MOCHI', 'BISCUIT', 'BLUE'];
+  const yarnify = p => Object.assign({}, p, { S: '#e86f9b', B: '#5a9bff', G: '#4f9fe0' });
+  const starify = p => [
+    Object.assign({}, p, { H: '#fff6b0', O: '#ffe15a', D: '#f5b821', S: '#d6871a', B: '#ffffff' }),
+    Object.assign({}, p, { H: '#ffd6f2', O: '#ff9fd8', D: '#e86fc0', S: '#b74a9a', B: '#fff6b0' }),
+    Object.assign({}, p, { H: '#d6f6ff', O: '#8fdcff', D: '#5ab4f0', S: '#2f86c8', B: '#ffd6f2' }),
+  ];
+  const makeCat = (pal, i) => ({
+    small: catSet(MAPS.CAT, pal),
+    big: catSet(bigRows(), pal),
+    yarn: catSet(bigRows(), i === 0 ? yarnPal : yarnify(pal)),
+    starSmall: starify(pal).map(p => catSet(MAPS.CAT, p)),
+    starBig: starify(pal).map(p => catSet(bigRows(), p)),
+    hcat: spriteFromMap(MAPS.HCAT, pal),
+    name: CAT_NAMES[i],
+  });
+  const cats = CAT_PALS.map(makeCat);
+  const cat = cats[0];
 
   // ----- mouse -----
   function mouseFrame(dx) {
@@ -300,5 +316,5 @@
   const milkPal = { K: '#2a3a5a', W: '#ffffff', w: '#d8e2f0', B: '#4a9bff', E: '#2a1830', P: '#ff8fa3' };
   const milk = spriteFromMap(MILK, milkPal);
 
-  window.SPRITES = { MAPS, catPal, yarnPal, mousePal, fishPal, coinPal, cat, mouse, fish, coin, scoin, hcat, hedgehog, extras, frag, rockFrag, mushroom, milk };
+  window.SPRITES = { MAPS, catPal, yarnPal, mousePal, fishPal, coinPal, cat, cats, CAT_NAMES, mouse, fish, coin, scoin, hcat, hedgehog, extras, frag, rockFrag, mushroom, milk };
 })();
