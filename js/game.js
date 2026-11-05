@@ -106,12 +106,12 @@
     togglePause() {
       if (this.isGuest) return;
       if (this.state === 'play') { this.state = 'pause'; AUDIO.MUSIC.stop(); }
-      else if (this.state === 'pause') { this.state = 'play'; this.helpOpen = false; AUDIO.MUSIC.start(); }
+      else if (this.state === 'pause') { this.state = 'play'; this.helpOpen = false; AUDIO.MUSIC.start(this.song); }
     }
     toggleHelp() {
       if (this.state === 'title' || this.state === 'intro' || this.state === 'join' || this.state === 'lobby' || this.state === 'connecting') return;
       this.helpOpen = !this.helpOpen;
-      if (!this.isGuest) { if (this.helpOpen && this.state === 'play') { this.state = 'pause'; AUDIO.MUSIC.stop(); } else if (!this.helpOpen && this.state === 'pause') { this.state = 'play'; AUDIO.MUSIC.start(); } }
+      if (!this.isGuest) { if (this.helpOpen && this.state === 'play') { this.state = 'pause'; AUDIO.MUSIC.stop(); } else if (!this.helpOpen && this.state === 'pause') { this.state = 'play'; AUDIO.MUSIC.start(this.song); } }
     }
 
     // ----- online: lobby -----
@@ -214,7 +214,8 @@
         for (const f of d.fx) { const e = E.fromFx(f, this); if (e) this.fxLocal.push(e); }
         for (const sf of d.sfx) { const [k, pid] = Array.isArray(sf) ? sf : [sf, 0]; if (pid === this.myId && LOCAL_SFX.has(k)) continue; if (AUDIO.SFX[k]) AUDIO.SFX[k](); }
         const mine = d.pl.find(p => p.id === this.myId); if (mine) this.reconcile(mine);
-        if (d.st !== this.state) { if (d.st === 'play') AUDIO.MUSIC.start(); else if (d.st !== 'warp') AUDIO.MUSIC.stop(); this.state = d.st; }
+        if (d.st !== this.state) { if (d.st === 'play') AUDIO.MUSIC.start(d.song); else if (d.st !== 'warp') AUDIO.MUSIC.stop(); this.state = d.st; }
+        else if (d.st === 'play' && d.song && d.song !== AUDIO.MUSIC.song()) AUDIO.MUSIC.start(d.song);
       }
     }
     onHostLeft() { if (this.mode === 'guest') { this.mode = 'solo'; this.netMsg = 'HOST LEFT'; this.state = 'title'; this.net.close(); this.loadLevel(); } }
@@ -349,7 +350,7 @@
       });
       const w = this.world;
       const tl = w.tileLog.slice(w.tileSent); w.tileSent = w.tileLog.length;
-      const s = { t: 'S', f: this.frame, st: this.state, w: lv.name, cam: Math.round(cam.x * 10) / 10, lives: this.lives, coins: this.coins, score: this.scoreVal, time: this.time, shake: this.shakeT > 0 ? this.shakeMag : 0, pl, en, tl, bm: this.bumps, fx: this.fxQueue, sfx: this.sfxQueue, fy: this.flagY, ct: this.clearTimer, warp: this.warp ? { phase: this.warp.phase, t: this.warp.t } : null };
+      const s = { t: 'S', f: this.frame, st: this.state, w: lv.name, cam: Math.round(cam.x * 10) / 10, lives: this.lives, coins: this.coins, score: this.scoreVal, time: this.time, shake: this.shakeT > 0 ? this.shakeMag : 0, pl, en, tl, bm: this.bumps, fx: this.fxQueue, sfx: this.sfxQueue, fy: this.flagY, ct: this.clearTimer, warp: this.warp ? { phase: this.warp.phase, t: this.warp.t } : null, song: this.song };
       this.fxQueue = []; this.sfxQueue = [];
       this.net.broadcast(s);
     }
@@ -421,6 +422,8 @@
     score(n, x, y) { this.scoreVal += n; if (x !== undefined) this.add(new E.ScorePop(x, y, String(n))); }
     splash(x, y) { this.add(new E.Splash(x, y)); AUDIO.SFX.splash(); }
     shake(frames, mag) { if (frames >= this.shakeT) { this.shakeT = frames; this.shakeMag = mag; } }
+    // Which tune a level plays; the boss arena overrides it.
+    get song() { if (this.bossStarted === true) return 'boss'; const th = this.level && this.level.theme; return th === 'cave' ? 'caves' : th === 'sand' ? 'shore' : th === 'mansion' ? 'mansion' : 'meadow'; }
     musicStar() { AUDIO.MUSIC.setRate(1.2); }
     musicNormal() { AUDIO.MUSIC.setRate(this.time <= 100 ? 1.25 : 1); }
     alivePlayers() { return this.players.filter(p => p.alive); }
@@ -437,14 +440,14 @@
       this.bossStarted = true;
       for (let r = 1; r <= 8; r++) this.setTile(a.c, r, 'gate');
       if (b) { b.state = 'idle'; b.stateT = 0; }
-      this.shake(10, 3); AUDIO.SFX.rock(); AUDIO.MUSIC.setRate(1.35);
+      this.shake(10, 3); AUDIO.SFX.rock(); AUDIO.MUSIC.start('boss');
       for (const p of this.players) if (p.alive && p.x < (a.c + 1) * T) p.x = (a.c + 1) * T + 2;
     }
     onBossDefeated() {
       this.bossStarted = 'done';
       const lv = this.level;
       for (let r = 0; r < lv.H; r++) for (let c = 0; c < lv.W; c++) if (lv.tiles[r][c] && lv.tiles[r][c].type === 'gate') this.setTile(c, r, null);
-      AUDIO.MUSIC.setRate(this.time <= 100 ? 1.25 : 1);
+      AUDIO.MUSIC.start(this.song);
     }
     killOnTop(bx, by) {
       for (const e of this.entities) {
@@ -510,7 +513,7 @@
       } else if (this.state === 'lobby') {
         if (this.mode === 'host' && inp.start && this.net.status === 'open') this.startGame(0);
       } else if (this.state === 'intro') {
-        if (++this.stateTimer > 110 || inp.start) { this.state = 'play'; AUDIO.MUSIC.start(); }
+        if (++this.stateTimer > 110 || inp.start) { this.state = 'play'; AUDIO.MUSIC.start(this.song); }
       } else if (this.state === 'play') {
         this.updatePlay();
       } else if (this.state === 'warp') {
