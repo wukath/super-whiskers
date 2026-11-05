@@ -6,6 +6,8 @@ are generated in code at load time.
 
 **Play it:** https://wukath.github.io/super-whiskers/
 
+![Super Whiskers](social-preview.png)
+
 ![Gameplay](screenshot-gameplay.png)
 
 ## Online co-op
