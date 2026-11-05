@@ -62,7 +62,7 @@
     constructor(x, y, opts = {}) {
       super(x, y, FORMS.small.w, FORMS.small.h);
       this.input = opts.input || null; this.catIndex = opts.cat || 0; this.id = opts.id || 0; this.name = opts.name || SPRITES.CAT_NAMES[this.catIndex];
-      this.bubbled = false; this.out = false; this.hidden = false; this.bubbleT = 0;
+      this.bubbled = false; this.out = false; this.hidden = false; this.bubbleT = 0; this.errX = 0; this.errY = 0;
       this.form = 'small'; this.facing = 1; this.anim = 0; this.hurtTimer = 0; this.starTimer = 0; this.growTimer = 0; this.growTo = null;
       this.dying = false; this.deadTimer = 0; this.inWater = false; this.wasInWater = false; this.jumpHeld = false; this.coyote = 0; this.jumpBuffer = 0; this.skidding = false; this.sliding = false; this.frozen = false;
       this.sx = 1; this.sy = 1; this.wallDir = 0; this.wallSlide = false; this.wallCoyote = 0; this.inputLock = 0;
@@ -327,7 +327,7 @@
       if (this.onGround && !this.dying) ctx.drawImage(sh, Math.round(this.cx - 12 - cam.x), Math.round(this.bottom - 2 - cam.y));
       let cv = this.facing < 0 ? img.l : img.r;
       if (this.wallSlide) cv = this.wallDir > 0 ? img.l : img.r;
-      const bx = this.cx - cam.x, by = this.bottom - cam.y;
+      const bx = this.cx - cam.x + (this.errX || 0), by = this.bottom - cam.y + (this.errY || 0);
       if (game && game.players.length > 1 && !this.dying) { const row = game.players.indexOf(this) % 2; game.painter.text(this.name, Math.round(bx - PX.textWidth(this.name, 1) / 2), Math.round(by - cv.height - 12 - row * 11), 1, '#ffffff', '#3a2a3a'); }
       if (Math.abs(this.sx - 1) < 0.02 && Math.abs(this.sy - 1) < 0.02 && !this.pound) { ctx.drawImage(cv, Math.round(bx - cv.width / 2), Math.round(by - cv.height)); return; }
       ctx.save(); ctx.translate(Math.round(bx), Math.round(by));
@@ -633,6 +633,8 @@
   CoinPop.prototype.kind = 'coinpop'; CoinPop.prototype.netFields = [];
   YarnBall.prototype.kind = 'yarn'; YarnBall.prototype.netFields = [];
   Player.prototype.netFields = ['form', 'catIndex', 'name', 'anim', 'dying', 'bubbled', 'out', 'hidden', 'sliding', 'pound', 'poundTimer', 'dashTimer', 'inWater', 'swimKick', 'onGround', 'skidding', 'wallSlide', 'wallDir', 'hurtTimer', 'starTimer', 'growTimer', 'growTo', 'sx', 'sy', 'bubbleT', 'w', 'h'];
+  // Extra state a guest needs to continue simulating its own cat from a snapshot.
+  Player.prototype.predFields = ['vx', 'vy', 'jumpHeld', 'coyote', 'jumpBuffer', 'wasInWater', 'wallCoyote', 'inputLock', 'dashCooldown', 'dashDir', 'airDashUsed', 'prevBottom', 'wasOnGround', 'frozen', 'throwTimer', 'deadTimer'];
   function makeGhost(kind, x, y) {
     switch (kind) {
       case 'mouse': return new Mouse(x, y);

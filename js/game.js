@@ -8,7 +8,15 @@
   const SNAP_EVERY = 2;        // host frames between snapshots (30 Hz)
   const INTERP_DELAY = 70;     // ms guests render behind the newest snapshot
 
-  const newInput = () => ({ left: false, right: false, down: false, run: false, jumpHeld: false, jumpPressed: false, firePressed: false, downPressed: false, dashPressed: false, start: false, counts: [0, 0, 0, 0, 0], seen: [0, 0, 0, 0, 0] });
+  const newInput = () => ({ left: false, right: false, down: false, run: false, jumpHeld: false, jumpPressed: false, firePressed: false, downPressed: false, dashPressed: false, start: false, counts: [0, 0, 0, 0, 0] });
+  // Sounds the guest already played while predicting its own cat.
+  const LOCAL_SFX = new Set(['jump', 'walljump', 'dash', 'poundStart', 'pound', 'boing', 'splash', 'yarn']);
+  const heldBits = i => (i.left ? 1 : 0) | (i.right ? 2 : 0) | (i.down ? 4 : 0) | (i.run ? 8 : 0) | (i.jumpHeld ? 16 : 0);
+  const pressedBits = i => (i.jumpPressed ? 1 : 0) | (i.firePressed ? 2 : 0) | (i.downPressed ? 4 : 0) | (i.dashPressed ? 8 : 0) | (i.start ? 16 : 0);
+  function applyBits(i, h, p) {
+    i.left = !!(h & 1); i.right = !!(h & 2); i.down = !!(h & 4); i.run = !!(h & 8); i.jumpHeld = !!(h & 16);
+    i.jumpPressed = !!(p & 1); i.firePressed = !!(p & 2); i.downPressed = !!(p & 4); i.dashPressed = !!(p & 8); i.start = !!(p & 16);
+  }
 
   class Game {
     constructor(canvas) {
@@ -20,8 +28,8 @@
       this.mode = 'solo'; this.net = new NET.Net(this); this.myId = 1; this.nextId = 2; this.nid = 1;
       this.slots = [{ id: 1, cat: 0, input: this.input, local: true }];
       this.fxQueue = []; this.sfxQueue = []; this.snaps = []; this.ghosts = new Map(); this.fxLocal = []; this.joinCode = ''; this.netMsg = '';
-      this.players = [];
-      AUDIO.hooks.onSfx = k => { if (this.mode === 'host') this.sfxQueue.push(k); };
+      this.players = []; this.seq = 0; this.pending = []; this.me = null; this.curPid = 0;
+      AUDIO.hooks.onSfx = k => { if (this.mode === 'host') this.sfxQueue.push([k, this.curPid]); };
       this.bindInput();
       this.loadLevel();
       this.resize(); window.addEventListener('resize', () => this.resize());
@@ -134,15 +142,14 @@
       if (d.t === 'J') {
         if (this.state !== 'lobby' || this.slots.length >= 4) { conn.send({ t: 'K', why: this.state !== 'lobby' ? 'GAME IN PROGRESS' : 'ROOM FULL' }); return; }
         const used = this.slots.map(s => s.cat); let cat = d.cat; while (used.includes(cat)) cat = (cat + 1) % 4;
-        const slot = { id: this.nextId++, cat, input: newInput(), conn, lastSeen: this.frame };
+        const slot = { id: this.nextId++, cat, input: newInput(), conn, lastSeen: this.frame, queue: [], lastSeq: 0, lastQueued: 0 };
         this.slots.push(slot); conn.send({ t: 'W', id: slot.id }); this.sendLobby(); AUDIO.SFX.appear();
       } else if (d.t === 'C') {
         const slot = this.slots.find(s => s.conn === conn); if (slot && this.state === 'lobby') { slot.cat = ((d.cat % 4) + 4) % 4; this.sendLobby(); }
       } else if (d.t === 'I') {
         const slot = this.slots.find(s => s.conn === conn); if (!slot) return;
-        const i = slot.input, h = d.h; slot.lastSeen = this.frame;
-        i.left = !!(h & 1); i.right = !!(h & 2); i.down = !!(h & 4); i.run = !!(h & 8); i.jumpHeld = !!(h & 16);
-        i.counts = d.c;
+        slot.lastSeen = this.frame;
+        for (const r of d.q) if (r.s > (slot.lastQueued || 0)) { slot.queue.push(r); slot.lastQueued = r.s; }
       }
     }
     onGuestLeft(conn) {
@@ -151,14 +158,17 @@
       const p = this.players.find(p => p.id === slot.id); if (p) { p.out = true; p.hidden = true; p.bubbled = false; p.dying = false; }
       if (this.state === 'lobby') this.sendLobby();
     }
-    // Pressed flags for remote players come from event counters.
+    // Each host step consumes one queued input frame per guest, in order, so the
+    // guest's prediction and the host agree. A backlog is drained two at a time.
     syncRemoteInputs() {
       for (const s of this.slots.slice()) {
         if (s.local) continue;
         if (this.state !== 'lobby' && this.frame - (s.lastSeen || this.frame) > 300) { try { s.conn.close(); } catch (e) { } this.onGuestLeft(s.conn); continue; }
         const i = s.input;
-        i.jumpPressed = i.counts[0] > i.seen[0]; i.firePressed = i.counts[1] > i.seen[1]; i.downPressed = i.counts[2] > i.seen[2]; i.dashPressed = i.counts[3] > i.seen[3]; i.start = i.counts[4] > i.seen[4];
-        i.seen = i.counts.slice();
+        let r = s.queue.shift();
+        if (r && s.queue.length > 3) { const r2 = s.queue.shift(); r = { s: r2.s, h: r2.h, p: r.p | r2.p }; }
+        if (r) { applyBits(i, r.h, r.p); s.lastSeq = r.s; }
+        else { i.jumpPressed = i.firePressed = i.downPressed = i.dashPressed = i.start = false; }
       }
     }
     clearPressed() { for (const s of this.slots) { const i = s.input; i.jumpPressed = i.firePressed = i.downPressed = i.dashPressed = i.start = false; } }
@@ -173,6 +183,8 @@
         for (const name of Object.keys(d.tiles)) { const w = this.worlds[name]; if (w) for (const ch of d.tiles[name]) this.applyTile(w.level, ch); }
         this.setWorld(d.world); this.ghosts.clear(); this.snaps = []; this.fxLocal = [];
         this.players = d.slots.map(s => new E.Player(0, 0, { id: s.id, cat: s.cat }));
+        this.me = this.players.find(p => p.id === this.myId) || null; if (this.me) { this.me.errX = 0; this.me.errY = 0; }
+        this.pending = [];
         const th = this.level.theme;
         this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th) };
         this.state = 'intro'; this.stateTimer = 0;
@@ -181,22 +193,66 @@
         if (d.w !== this.level.name && this.worlds[d.w]) { this.setWorld(d.w); this.ghosts.clear(); this.fxLocal = []; }
         for (const ch of d.tl) this.applyTile(this.level, ch);
         for (const f of d.fx) { const e = E.fromFx(f, this); if (e) this.fxLocal.push(e); }
-        for (const k of d.sfx) if (AUDIO.SFX[k]) AUDIO.SFX[k]();
+        for (const sf of d.sfx) { const [k, pid] = Array.isArray(sf) ? sf : [sf, 0]; if (pid === this.myId && LOCAL_SFX.has(k)) continue; if (AUDIO.SFX[k]) AUDIO.SFX[k](); }
+        const mine = d.pl.find(p => p.id === this.myId); if (mine) this.reconcile(mine);
         if (d.st !== this.state) { if (d.st === 'play') AUDIO.MUSIC.start(); else if (d.st !== 'warp') AUDIO.MUSIC.stop(); this.state = d.st; }
       }
     }
     onHostLeft() { if (this.mode === 'guest') { this.mode = 'solo'; this.netMsg = 'HOST LEFT'; this.state = 'title'; this.net.close(); this.loadLevel(); } }
+    // One input record per frame; the last few are resent so a late packet is harmless.
     sendInput() {
-      const i = this.input;
-      const h = (i.left ? 1 : 0) | (i.right ? 2 : 0) | (i.down ? 4 : 0) | (i.run ? 8 : 0) | (i.jumpHeld ? 16 : 0);
-      const key = h + ':' + i.counts.join(',');
-      if (key !== this.lastInputKey || this.frame % 6 === 0) { this.net.send({ t: 'I', h, c: i.counts }); this.lastInputKey = key; }
+      const rec = { s: ++this.seq, h: heldBits(this.input), p: pressedBits(this.input) };
+      this.pending.push(rec); if (this.pending.length > 120) this.pending.shift();
+      this.net.send({ t: 'I', q: this.pending.slice(-3) });
+      return rec;
+    }
+    // A stand-in for the game that lets Player.update run against local state
+    // without spawning anything authoritative.
+    predictProxy() {
+      if (!this.proxy) {
+        const g = this;
+        this.proxy = {
+          get input() { return g.predInput; }, get cam() { return g.cam; }, get players() { return g.players; }, get entities() { return g.entities; },
+          get levelW() { return g.levelW; }, get levelH() { return g.levelH; }, get painter() { return g.painter; },
+          tileAt: (c, r) => g.tileAt(c, r), isSolid: (c, r) => g.isSolid(c, r), isHidden: (c, r) => g.isHidden(c, r),
+          add: () => { }, hitBlock: () => { }, breakWall: () => false, breakTile: () => false, killPlayer: () => { }, countYarn: () => 2,
+          shake: (f, m) => g.shake(f, m), splash: () => { AUDIO.SFX.splash(); }, musicNormal: () => { }, nearestAlive: p => g.nearestAlive(p), score: () => { },
+        };
+        this.predInput = newInput();
+      }
+      return this.proxy;
+    }
+    predictStep(rec) {
+      if (!this.me) return;
+      const proxy = this.predictProxy();
+      applyBits(this.predInput, rec.h, rec.p);
+      this.me.input = this.predInput;
+      this.me.update(proxy);
+    }
+    // Reset our cat to the host's state and replay the inputs it hasn't seen.
+    reconcile(sp) {
+      const me = this.me; if (!me) return;
+      const ox = me.x + me.errX, oy = me.y + me.errY;
+      me.x = sp.x; me.y = sp.y; me.facing = sp.fc; me.t = sp.t;
+      for (const k of E.Player.prototype.netFields) me[k] = sp.f[k];
+      for (const k of E.Player.prototype.predFields) me[k] = sp.pf[k];
+      me.carrier = null;
+      this.pending = this.pending.filter(r => r.s > sp.ack);
+      if (this.state !== 'play') { me.errX = 0; me.errY = 0; return; }
+      AUDIO.hooks.suppress = true;
+      for (const r of this.pending) this.predictStep(r);
+      AUDIO.hooks.suppress = false;
+      const ex = ox - me.x, ey = oy - me.y;
+      if (Math.abs(ex) < 48 && Math.abs(ey) < 48) { me.errX = ex; me.errY = ey; } else { me.errX = 0; me.errY = 0; }
     }
     // Interpolate the two newest snapshots into ghost entities for rendering.
     clientStep() {
       this.frame++;
       if (this.shakeT > 0) this.shakeT--;
-      if (this.net.status === 'open') this.sendInput();
+      if (this.net.status === 'open' && this.state !== 'lobby' && this.state !== 'connecting') {
+        const rec = this.sendInput();
+        if (this.me && this.state === 'play') { this.predictStep(rec); this.me.errX *= 0.75; this.me.errY *= 0.75; }
+      }
       this.input.jumpPressed = this.input.firePressed = this.input.downPressed = this.input.dashPressed = this.input.start = false;
       for (const e of this.fxLocal) e.update(this);
       this.fxLocal = this.fxLocal.filter(e => !e.remove);
@@ -214,6 +270,7 @@
       for (const sp of s1.pl) {
         let p = this.players.find(q => q.id === sp.id);
         if (!p) { p = new E.Player(sp.x, sp.y, { id: sp.id, cat: sp.f.catIndex }); this.players.push(p); }
+        if (p === this.me) continue;
         const q = prevPl.get(sp.id);
         p.x = q ? lerp(q.x, sp.x) : sp.x; p.y = q ? lerp(q.y, sp.y) : sp.y; p.facing = sp.fc; p.t = sp.t;
         for (const k of E.Player.prototype.netFields) p[k] = sp.f[k];
@@ -224,7 +281,8 @@
         let g = this.ghosts.get(se.id);
         if (!g) { g = E.makeGhost(se.k, se.x, se.y); if (!g) continue; g.active = true; this.ghosts.set(se.id, g); }
         const q = prevEn.get(se.id);
-        g.x = q ? lerp(q.x, se.x) : se.x; g.y = q ? lerp(q.y, se.y) : se.y; g.facing = se.fc; g.t = se.t;
+        const nx = q ? lerp(q.x, se.x) : se.x, ny = q ? lerp(q.y, se.y) : se.y;
+        g.dx = nx - g.x; g.dy = ny - g.y; g.x = nx; g.y = ny; g.facing = se.fc; g.t = se.t;
         if (g.netFields) for (const k of g.netFields) if (se.f[k] !== undefined) g[k] = se.f[k];
         seen.add(se.id);
       }
@@ -242,7 +300,12 @@
         if (e.x + e.w < cam.x - 160 || e.x > cam.x + VW + 160) continue;
         en.push(pack(e));
       }
-      const pl = this.players.map(p => { const o = pack(p); o.id = p.id; return o; });
+      const pl = this.players.map(p => {
+        const o = pack(p); o.id = p.id;
+        const slot = this.slots.find(s => s.id === p.id); o.ack = slot ? (slot.lastSeq || 0) : 0;
+        o.pf = {}; for (const k of E.Player.prototype.predFields) o.pf[k] = p[k];
+        return o;
+      });
       const w = this.world;
       const tl = w.tileLog.slice(w.tileSent); w.tileSent = w.tileLog.length;
       const s = { t: 'S', f: this.frame, st: this.state, w: lv.name, cam: Math.round(cam.x * 10) / 10, lives: this.lives, coins: this.coins, score: this.scoreVal, time: this.time, shake: this.shakeT > 0 ? this.shakeMag : 0, pl, en, tl, bm: this.bumps, fx: this.fxQueue, sfx: this.sfxQueue, fy: this.flagY, ct: this.clearTimer, warp: this.warp ? { phase: this.warp.phase, t: this.warp.t } : null };
@@ -421,7 +484,8 @@
     }
     updatePlay() {
       this.updatePlatforms();
-      for (const p of this.players) p.update(this);
+      for (const p of this.players) { this.curPid = p.id; p.update(this); }
+      this.curPid = 0;
       if (this.state !== 'play') return;
       this.updateEntities();
       // dead teammates come back as bubbles while someone is still alive
@@ -434,8 +498,9 @@
       }
       for (const p of this.players) {
         if (!p.alive || p.growTimer > 0) continue;
-        this.playerCollisions(p);
+        this.curPid = p.id; this.playerCollisions(p);
       }
+      this.curPid = 0;
       // head bounce and bubble popping between players
       for (const a of this.players) for (const b of this.players) {
         if (a === b) continue;
