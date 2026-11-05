@@ -119,7 +119,9 @@
       if (!this.net.available) { this.netMsg = 'ONLINE PLAY UNAVAILABLE'; return; }
       this.mode = 'host'; this.state = 'lobby'; this.netMsg = 'CREATING ROOM...';
       this.slots = [{ id: 1, cat: 0, input: this.input, local: true }]; this.myId = 1; this.nextId = 2;
-      this.net.host(code => { this.netMsg = ''; this.roomUrl = location.origin + location.pathname + '?room=' + code; });
+      // Inside an embed (itch.io etc.) our own URL isn't shareable, so only show the code there.
+      const embedded = window.top !== window.self;
+      this.net.host(code => { this.netMsg = ''; this.roomUrl = embedded ? null : location.origin + location.pathname + '?room=' + code; });
     }
     joinGame(code) {
       if (!this.net.available) { this.netMsg = 'ONLINE PLAY UNAVAILABLE'; this.state = 'title'; return; }
@@ -870,6 +872,7 @@
       if (this.net.code && this.net.status === 'open') {
         this.center(this.net.code.split('').join(' '), 62, 4, '#ffe27a');
         if (host && this.roomUrl) { this.center('FRIENDS PRESS J AND TYPE THE CODE, OR OPEN:', 104, 1, '#bfe8ff'); this.center(this.roomUrl.replace(/^https?:\/\//, '').toUpperCase(), 118, 1, '#ffffff'); }
+        else if (host) this.center('FRIENDS OPEN THIS PAGE, PRESS J AND TYPE THE CODE', 104, 1, '#bfe8ff');
       } else this.center(this.netMsg || 'CONNECTING...', 70, 2, '#ffffff');
       const slots = host ? this.slots.map(s => ({ id: s.id, cat: s.cat })) : (this.lobbySlots || []);
       this.center('CATS IN THE ROOM', 146, 1, '#ffffff');
