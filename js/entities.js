@@ -442,12 +442,15 @@
       const nx = this.x + this.vx;
       const nc = Math.floor((this.vx < 0 ? nx : nx + this.w) / T), r = Math.floor((this.y + this.h / 2) / T);
       const tt = game.tileAt(nc, r);
-      if (!tt || tt.type !== 'water') { this.vx = -this.vx; } else this.x = nx;
+      // floating logs are solid to fish: turn around instead of swimming through
+      const log = game.entities.find(p => p.isPlatform && p.kind === 'log' && p.active && nx < p.x + p.w && nx + this.w > p.x && this.y < p.y + p.h + 4 && this.y + this.h > p.y - 2);
+      if (!tt || tt.type !== 'water' || log) { this.vx = -this.vx; } else this.x = nx;
       this.facing = Math.sign(this.vx);
       this.y = this.baseY + Math.sin(this.t * 0.06) * 4;
     }
     stomp(game, player) { this.flipKill(game, player.facing); AUDIO.SFX.stomp(); }
-    touch(game, player) { player.hurt(game); }
+    // A cat standing on a log or the bank is out of reach.
+    touch(game, player) { if (player.carrier || (player.onGround && !player.inWater)) return; player.hurt(game); }
     draw(ctx, cam) { this.drawImg(ctx, cam, S().fish.swim[Math.floor(this.t / 7) % 4]); }
   }
 

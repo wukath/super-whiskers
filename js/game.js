@@ -379,7 +379,7 @@
           if (s.type === 'coin') e = new E.CoinPickup(x + 10, y - 26);
           else if (s.type === 'mouse') e = new E.Mouse(x + 4, y - 20);
           else if (s.type === 'hedgehog') e = new E.Hedgehog(x + 4, y - 22);
-          else if (s.type === 'fish') e = new E.Fish(x + 4, y - 24);
+          else if (s.type === 'fish') e = new E.Fish(x + 4, y - 18);
           else if (s.type === 'bouncer') e = new E.Bouncer(x + 2, y - 18);
           else if (s.type === 'boss') e = new E.Boss(x - 10, y - 40);
           else if (s.type === 'hlift' || s.type === 'vlift' || s.type === 'fall' || s.type === 'log') { e = new E.Platform(s); e.theme = level.theme; }
