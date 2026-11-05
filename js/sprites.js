@@ -247,6 +247,11 @@
   }
   const extras = {};
   for (const n of ['HEDGEHOG', 'HEDGEHOG_BALL', 'FISH_ITEM', 'YARN_ITEM', 'YARN_BALL', 'YARN_BALL2', 'FLAG', 'HOUSE', 'STAR']) extras[n] = ex(n);
+  for (const n of ['BOSS', 'BOSS_WALK', 'BOSS_HURT', 'BOSS_CHARGE', 'BONE', 'CANDLE', 'PORTRAIT']) {
+    const sb = window.SPR_BOSS && window.SPR_BOSS[n];
+    if (sb) { const cv = spriteFromMap(sb.rows, sb.pal); extras[n] = { l: cv, r: flipH(cv), w: sb.w, h: sb.h }; }
+    else { const cv = render(64, 48, p => { p.rect(0, 0, 64, 48, '#ff00ff'); p.rect(8, 8, 48, 32, '#000000'); }); extras[n] = { l: cv, r: cv, w: 64, h: 48 }; }
+  }
   // Hedgehog art faces left like the mouse, so swap sides.
   const hedgehog = { walk: [extras.HEDGEHOG, extras.HEDGEHOG], ball: extras.HEDGEHOG_BALL, w: extras.HEDGEHOG.w, h: extras.HEDGEHOG.h };
   hedgehog.walk[0] = { l: extras.HEDGEHOG.r, r: extras.HEDGEHOG.l };

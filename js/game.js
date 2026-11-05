@@ -58,7 +58,7 @@
           case 'ShiftLeft': case 'ShiftRight': case 'KeyX': case 'KeyJ': return 'run';
           case 'KeyC': case 'KeyL': return 'dash';
           case 'Enter': return 'start';
-          case 'Digit1': case 'Digit2': case 'Digit3': return 'lvl' + code[5];
+          case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': return 'lvl' + code[5];
           case 'KeyP': return 'pause';
           case 'KeyH': case 'Slash': case 'F1': return 'help';
           case 'KeyM': return 'mute';
@@ -204,7 +204,7 @@
         this.me = this.players.find(p => p.id === this.myId) || null; if (this.me) { this.me.errX = 0; this.me.errY = 0; }
         this.pending = [];
         const th = this.level.theme;
-        this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th) };
+        this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th) };
         this.state = 'intro'; this.stateTimer = 0;
       } else if (d.t === 'S') {
         d.recv = performance.now(); this.snaps.push(d); if (this.snaps.length > 12) this.snaps.shift();
@@ -313,7 +313,7 @@
       const seen = new Set();
       for (const se of s1.en) {
         let g = this.ghosts.get(se.id);
-        if (!g) { g = E.makeGhost(se.k, se.x, se.y); if (!g) continue; g.active = true; this.ghosts.set(se.id, g); }
+        if (!g) { g = E.makeGhost(se.k, se.x, se.y); if (!g) continue; g.active = true; g.theme = this.level.theme; this.ghosts.set(se.id, g); }
         const q = prevEn.get(se.id);
         const nx = q ? lerp(q.x, se.x) : se.x, ny = q ? lerp(q.y, se.y) : se.y;
         g.dx = nx - g.x; g.dy = ny - g.y; g.x = nx; g.y = ny; g.facing = se.fc; g.t = se.t;
@@ -380,7 +380,8 @@
           else if (s.type === 'hedgehog') e = new E.Hedgehog(x + 4, y - 22);
           else if (s.type === 'fish') e = new E.Fish(x + 4, y - 24);
           else if (s.type === 'bouncer') e = new E.Bouncer(x + 2, y - 18);
-          else if (s.type === 'hlift' || s.type === 'vlift' || s.type === 'fall' || s.type === 'log') e = new E.Platform(s);
+          else if (s.type === 'boss') e = new E.Boss(x - 10, y - 40);
+          else if (s.type === 'hlift' || s.type === 'vlift' || s.type === 'fall' || s.type === 'log') { e = new E.Platform(s); e.theme = level.theme; }
           if (e) { e.nid = this.nid++; entities.push(e); }
         }
         this.worlds[level.name] = { level, entities, bumps: [], tileLog: [], tileSent: 0 };
@@ -397,10 +398,10 @@
         return p;
       });
       this.time = this.level.time; this.timeTick = 0; this.warned = false;
-      this.cam.x = 0; this.flagY = 0; this.clearTimer = 0; this.warp = null; this.fxQueue = []; this.sfxQueue = []; this.flagPlayer = null;
+      this.cam.x = 0; this.flagY = 0; this.clearTimer = 0; this.warp = null; this.fxQueue = []; this.sfxQueue = []; this.flagPlayer = null; this.bossStarted = false;
       AUDIO.MUSIC.setRate(1);
       const th = this.level.theme;
-      this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th) };
+      this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th) };
       if (this.mode === 'host' && this.state !== 'lobby' && this.state !== 'title') this.sendLevel();
     }
     setWorld(name) {
@@ -426,8 +427,25 @@
     nearestAlive(p) { let best = null, bd = 1e9; for (const q of this.players) { if (q === p || !q.alive) continue; const d = Math.abs(q.cx - p.cx); if (d < bd) { bd = d; best = q; } } return best; }
 
     // ----- blocks -----
-    logTile(c, r) { const t = this.tileAt(c, r); this.world.tileLog.push({ c, r, type: t ? t.type : null, item: t ? t.item : undefined }); }
-    applyTile(level, ch) { if (ch.type === null) level.tiles[ch.r][ch.c] = null; else { const t = level.tiles[ch.r][ch.c] || { c: ch.c, r: ch.r }; t.type = ch.type; t.item = ch.item; level.tiles[ch.r][ch.c] = t; } }
+    logTile(c, r) { const t = this.tileAt(c, r); this.world.tileLog.push(t ? { c, r, type: t.type, item: t.item, variant: t.variant, top: t.top, bottom: t.bottom, left: t.left, right: t.right } : { c, r, type: null }); }
+    applyTile(level, ch) { if (ch.type === null) level.tiles[ch.r][ch.c] = null; else { const t = level.tiles[ch.r][ch.c] || { c: ch.c, r: ch.r }; Object.assign(t, ch); level.tiles[ch.r][ch.c] = t; } }
+    setTile(c, r, type) { if (type) this.level.tiles[r][c] = { type, c, r, variant: (c * 7 + r * 3) % 4, top: true, bottom: true, left: true, right: true }; else this.level.tiles[r][c] = null; this.logTile(c, r); }
+    // ----- boss arena -----
+    get boss() { return this.entities.find(e => e.isBoss) || null; }
+    startBoss() {
+      const a = this.level.arena, b = this.boss;
+      this.bossStarted = true;
+      for (let r = 1; r <= 8; r++) this.setTile(a.c, r, 'gate');
+      if (b) { b.state = 'idle'; b.stateT = 0; }
+      this.shake(10, 3); AUDIO.SFX.rock(); AUDIO.MUSIC.setRate(1.35);
+      for (const p of this.players) if (p.alive && p.x < (a.c + 1) * T) p.x = (a.c + 1) * T + 2;
+    }
+    onBossDefeated() {
+      this.bossStarted = 'done';
+      const lv = this.level;
+      for (let r = 0; r < lv.H; r++) for (let c = 0; c < lv.W; c++) if (lv.tiles[r][c] && lv.tiles[r][c].type === 'gate') this.setTile(c, r, null);
+      AUDIO.MUSIC.setRate(this.time <= 100 ? 1.25 : 1);
+    }
     killOnTop(bx, by) {
       for (const e of this.entities) {
         if (e.isEnemy && !e.flipDead && Math.abs(e.bottom - by) <= 4 && e.x < bx + T && e.x + e.w > bx) e.flipKill(this, e.cx < bx + 16 ? -1 : 1);
@@ -557,6 +575,8 @@
           if (w) { this.startWarp(w, p); return; }
         }
       }
+      const ar = this.level.arena;
+      if (ar && !this.bossStarted && this.alivePlayers().some(p => p.cx > (ar.c + 2) * T)) this.startBoss();
       this.updateCamera();
       if (++this.timeTick >= 24) {
         this.timeTick = 0; this.time--;
@@ -578,7 +598,7 @@
           if (!p.overlaps(box)) continue;
           const falling = p.vy > 0 || p.inWater || p.pounding;
           if (p.starTimer > 0 || p.dashing) { e.flipKill(this, p.dashing ? p.dashDir : p.facing); AUDIO.SFX.kick(); this.shake(4, 2); }
-          else if (falling && p.prevBottom <= box.y + 10) { e.stomp(this, p); p.bounce(); }
+          else if (falling && p.prevBottom <= box.y + 10) { e.stomp(this, p); if (p.vy >= 0) p.bounce(); p.y = Math.min(p.y, box.y - p.h); }
           else e.touch(this, p);
         } else if (e.isItem) {
           if (e.emerge <= 0 && p.overlaps(e)) e.collect(this, p);
@@ -688,7 +708,7 @@
     render() {
       const ctx = this.ctx, cam = this.cam, lv = this.level, P = this.painter;
       if (this.state === 'join' || this.state === 'connecting' || this.state === 'lobby') { this.drawLobby(); return; }
-      const cave = lv.theme === 'cave';
+      const cave = lv.theme === 'cave' || lv.theme === 'mansion';
       ctx.drawImage(cave ? this.bg.cave : this.bg.sky, 0, 0);
       ctx.save();
       if (this.shakeT > 0) ctx.translate(Math.round((Math.random() - 0.5) * 2 * this.shakeMag), Math.round((Math.random() - 0.5) * 2 * this.shakeMag));
@@ -719,6 +739,7 @@
         if (t.type === 'ground') ctx.drawImage(TILES.ground(t.variant, t.top, t.bottom, t.left, t.right, lv.theme), x, y - GROUND_OVER);
         else if (t.type === 'water') ctx.drawImage(TILES.waterBack(t.depth, wf), x, y);
         else if (t.type === 'hidden') continue;
+        else if (t.type === 'gate') ctx.drawImage(TILES.gate(), x, y);
         else if (t.type === 'brick' || t.type === 'q' || t.type === 'used' || t.type === 'crack') {
           const b = this.bumps.find(b => b.c === c && b.r === r);
           const oy = b ? -Math.round(Math.sin(b.t / 14 * Math.PI) * 8) : 0;
@@ -751,7 +772,7 @@
       else if (this.helpOpen) { ctx.fillStyle = 'rgba(20,20,40,0.78)'; ctx.fillRect(0, 60, VW, 270); this.center('CONTROLS', 80, 3, '#ffe27a'); this.center('PRESS H TO CLOSE', 112, 1, '#ffffff'); this.drawControls(140); P.text('TIP: STOMP ENEMIES, POUND CRACKED TILES, POUNCE THROUGH CRACKED WALLS', 56, 300, 1, '#dfe8ff', '#3a2a3a'); }
       else if (this.state === 'pause') { ctx.fillStyle = 'rgba(20,20,40,0.6)'; ctx.fillRect(0, 60, VW, 270); this.center('PAUSED', 80, 3, '#ffe27a'); this.center(this.isGuest ? 'THE HOST PAUSED THE GAME' : 'PRESS P TO CONTINUE', 112, 1, '#ffffff'); this.drawControls(140); }
       else if (this.state === 'gameover') this.banner('GAME OVER', this.isGuest ? 'WAITING FOR THE HOST' : 'PRESS ENTER');
-      else if (this.state === 'ending') { this.banner('YOU WIN!', 'ALL CATS ARE HOME'); this.center('FINAL SCORE ' + this.scoreVal, 250, 2, '#ffe27a'); if (!this.isGuest) this.center('PRESS ENTER', 280, 1, '#ffffff'); }
+      else if (this.state === 'ending') { this.banner('YOU WIN!', 'DUKE IS BEATEN - THE CATS ARE HOME'); this.center('FINAL SCORE ' + this.scoreVal, 250, 2, '#ffe27a'); if (!this.isGuest) this.center('PRESS ENTER', 280, 1, '#ffffff'); }
       else if (this.state === 'clear' && this.clearTimer > 0) this.banner('LEVEL CLEAR!', this.players.length > 1 ? 'THE CATS ARE HOME' : 'WHISKERS IS HOME');
       if (this.netMsg && this.state === 'title') this.center(this.netMsg, 346, 1, '#ff9f9f');
     }
@@ -770,6 +791,17 @@
       P.text(String(this.scoreVal).padStart(6, '0'), 336, 32, 2, Y, Sh);
       P.text('TIME', 512, 10, 2, W, Sh);
       P.text(String(this.time).padStart(3, '0'), 512, 32, 2, this.time <= 100 && this.state === 'play' && (this.frame % 30) < 15 ? '#ff7a7a' : W, Sh);
+      const boss = this.entities.find(e => e.isBoss);
+      if (boss && boss.state !== 'sleep' && (this.state === 'play' || this.state === 'pause')) {
+        const bw = 200, bx = (VW - bw) / 2, by = 56;
+        P.text(boss.name || 'DUKE', bx, by - 10, 1, '#ff9f9f', '#3a2a3a');
+        this.ctx.fillStyle = '#1a1024'; this.ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
+        this.ctx.fillStyle = '#4a2a3a'; this.ctx.fillRect(bx, by, bw, 8);
+        const frac = Math.max(0, boss.hp / (boss.maxHp || 3));
+        this.ctx.fillStyle = frac > 0.5 ? '#ff5a6e' : '#ffb347'; this.ctx.fillRect(bx, by, Math.round(bw * frac), 8);
+        this.ctx.fillStyle = 'rgba(255,255,255,0.35)'; this.ctx.fillRect(bx, by, Math.round(bw * frac), 2);
+        for (let i = 1; i < (boss.maxHp || 3); i++) { this.ctx.fillStyle = '#1a1024'; this.ctx.fillRect(bx + Math.round(bw * i / (boss.maxHp || 3)) - 1, by, 2, 8); }
+      }
       if (AUDIO.isMuted()) P.text('MUTED', 576, 340, 1, W, Sh);
       if (this.state === 'play' || this.state === 'warp') P.text('H  HELP', 584, 348, 1, 'rgba(255,255,255,0.75)', Sh);
       if (this.mode !== 'solo' && this.net.code && this.state !== 'title') P.text('ROOM ' + this.net.code, 24, 348, 1, 'rgba(255,255,255,0.75)', Sh);
@@ -810,7 +842,7 @@
       if ((this.frame % 60) < 40) this.center('ENTER  PLAY SOLO', 176, 2, '#ffffff');
       this.center('O  HOST AN ONLINE CO-OP GAME', 204, 1, '#bfe8ff');
       this.center('J  JOIN A FRIEND\'S ROOM', 218, 1, '#bfe8ff');
-      const lines = ['ARROWS / WASD  MOVE      SPACE / Z  JUMP      SHIFT / X  RUN + THROW YARN', 'C  POUNCE      DOWN  DUCK / CRAWL      DOWN IN AIR  GROUND POUND      DOWN ON PIPE  ENTER', 'JUMP OFF WALLS      P PAUSE   M MUTE   H HELP      1 / 2 / 3  START AT A LEVEL'];
+      const lines = ['ARROWS / WASD  MOVE      SPACE / Z  JUMP      SHIFT / X  RUN + THROW YARN', 'C  POUNCE      DOWN  DUCK / CRAWL      DOWN IN AIR  GROUND POUND      DOWN ON PIPE  ENTER', 'JUMP OFF WALLS      P PAUSE   M MUTE   H HELP      1 - 4  START AT A LEVEL'];
       lines.forEach((l, i) => this.center(l, 256 + i * 12, 1, '#dfe8ff'));
     }
     drawLobby() {

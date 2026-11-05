@@ -451,6 +451,86 @@
     draw(ctx, cam) { this.drawImg(ctx, cam, S().fish.swim[Math.floor(this.t / 7) % 4]); }
   }
 
+  // ---------------- Boss: Duke the bulldog ----------------
+  class Boss extends Enemy {
+    constructor(x, y) {
+      super(x, y, 52, 40); this.isBoss = true; this.active = true; this.hp = 3; this.maxHp = 3; this.state = 'sleep'; this.stateT = 0; this.hurtT = 0; this.facing = -1; this.points = 5000; this.nextMove = 'charge'; this.name = 'DUKE';
+    }
+    get rage() { return (this.maxHp - this.hp) / this.maxHp; }
+    behave(game) {
+      this.stateT++;
+      if (this.hurtT > 0) this.hurtT--;
+      const target = game.alivePlayers().sort((a, b) => Math.abs(a.cx - this.cx) - Math.abs(b.cx - this.cx))[0];
+      this.vy = Math.min(this.vy + 0.6, 12);
+      if (this.state === 'sleep') { this.vx = 0; this.moveAndCollide(game); return; }
+      if (this.state === 'idle') {
+        this.vx = 0; if (target) this.facing = target.cx < this.cx ? -1 : 1;
+        if (this.stateT > 55 - this.rage * 30) { this.state = this.nextMove; this.nextMove = this.nextMove === 'charge' ? 'slam' : 'charge'; this.stateT = 0; if (this.state === 'slam') { this.vy = -15; this.vx = this.facing * 2.6; AUDIO.SFX.poundStart(); } else AUDIO.SFX.dash(); }
+      } else if (this.state === 'charge') {
+        this.vx = this.facing * (4.2 + this.rage * 2.2);
+        if (this.stateT % 6 === 0) game.add(new Dust(this.cx - this.facing * 20, this.bottom - 2, -this.facing, 2));
+      } else if (this.state === 'slam') {
+        if (this.onGround && this.stateT > 6) {
+          this.state = 'idle'; this.stateT = 0; this.vx = 0; game.shake(12, 5); AUDIO.SFX.pound();
+          game.add(new Bone(this.x - 10, this.bottom - 10, -1)); game.add(new Bone(this.x + this.w - 4, this.bottom - 10, 1));
+          for (let i = 0; i < 3; i++) { game.add(new Dust(this.cx - 20 - i * 8, this.bottom - 2, -1, 3)); game.add(new Dust(this.cx + 20 + i * 8, this.bottom - 2, 1, 3)); }
+        }
+      } else if (this.state === 'stun' || this.state === 'hurt') {
+        this.vx = 0;
+        if (this.stateT > (this.state === 'stun' ? 45 : 55)) { this.state = 'idle'; this.stateT = 0; }
+      }
+      this.moveAndCollide(game);
+      if (this.state === 'charge' && this.hitWall) { this.state = 'stun'; this.stateT = 0; this.vx = 0; game.shake(8, 3); AUDIO.SFX.bump(); game.add(new Poof(this.cx + this.facing * 26, this.y + 10, 0.8)); }
+    }
+    damage(game, amt, dir) {
+      if (this.hurtT > 0 || this.state === 'dead' || this.state === 'sleep') return false;
+      this.hp = Math.max(0, this.hp - amt); this.hurtT = 60; this.state = 'hurt'; this.stateT = 0; this.vx = 0;
+      game.shake(8, 3); AUDIO.SFX.hurt(); game.add(new Poof(this.cx, this.y + 8, 1.4)); game.score(500, this.cx - 12, this.y - 10);
+      if (this.hp <= 0) this.die(game, dir);
+      return true;
+    }
+    die(game, dir) {
+      this.state = 'dead'; this.flipDead = true; this.vy = -9; this.vx = (dir || 1) * 1.2; this.hurtT = 0;
+      game.score(5000, this.cx - 20, this.y - 20); game.shake(24, 6); AUDIO.SFX.clear();
+      for (let i = 0; i < 5; i++) game.add(new Poof(this.x + 10 + i * 10, this.y + 8 + (i % 2) * 20, 1.5));
+      game.onBossDefeated(this);
+    }
+    stomp(game, player) { if (this.damage(game, 1, player.facing)) { player.vy = -12; player.jumpHeld = true; player.squash(0.7, 1.35); } else player.bounce(); }
+    flipKill(game, dir) { this.damage(game, 0.5, dir); }
+    touch(game, player) {
+      if (this.state === 'dead') return;
+      if (player.dashing) { this.damage(game, 0.5, player.dashDir); player.dashTimer = 0; player.vx = -player.dashDir * 5; player.vy = -5; player.hurtTimer = Math.max(player.hurtTimer, 20); return; }
+      player.hurt(game);
+    }
+    draw(ctx, cam) {
+      const ex = S().extras;
+      if (this.hurtT > 0 && this.state !== 'dead' && (Math.floor(this.t / 3) % 2) === 0) return;
+      let img = ex.BOSS;
+      if (this.state === 'charge' || this.state === 'slam') img = ex.BOSS_CHARGE;
+      else if (this.state === 'hurt' || this.state === 'stun' || this.state === 'dead') img = ex.BOSS_HURT;
+      else if (this.state === 'sleep' || this.state === 'idle') img = (Math.floor(this.t / 14) % 2) ? ex.BOSS_WALK : ex.BOSS;
+      const sh = TILES.shadow(26);
+      if (this.onGround && !this.flipDead) ctx.drawImage(sh, Math.round(this.cx - 26 - cam.x), Math.round(this.bottom - 2 - cam.y));
+      this.drawImg(ctx, cam, img);
+      if (this.state === 'stun') { const st = '*'; ctx.fillStyle = '#ffe27a'; for (let i = 0; i < 3; i++) { const a = this.t * 0.15 + i * 2.1; ctx.fillRect(Math.round(this.cx + Math.cos(a) * 18 - cam.x), Math.round(this.y - 8 + Math.sin(a) * 4 - cam.y), 3, 3); } }
+    }
+  }
+  class Bone extends Enemy {
+    constructor(x, y, dir) { super(x, y, 14, 8); this.vx = 3 * dir; this.facing = dir; this.points = 100; this.life = 260; this.active = true; }
+    behave(game) {
+      this.vy = Math.min(this.vy + 0.5, 8);
+      this.moveAndCollide(game);
+      if (this.onGround) this.vy = -3.2;
+      if (this.hitWall || --this.life <= 0) { this.remove = true; game.add(new Puff(this.cx, this.y + 4)); }
+    }
+    stomp(game, player) { this.flipKill(game, player.facing); AUDIO.SFX.stomp(); }
+    touch(game, player) { player.hurt(game); }
+    draw(ctx, cam) {
+      const cv = S().extras.BONE.r;
+      ctx.save(); ctx.translate(Math.round(this.cx - cam.x), Math.round(this.y + 4 - cam.y)); ctx.rotate(this.t * 0.2 * this.facing); ctx.drawImage(cv, -cv.width / 2, -cv.height / 2); ctx.restore();
+    }
+  }
+
   // ---------------- Platforms & bouncers ----------------
   class Platform extends Entity {
     constructor(spec) {
@@ -480,7 +560,7 @@
     }
     draw(ctx, cam) {
       if (!this.active) return;
-      const img = this.kind === 'log' ? TILES.log() : TILES.lift();
+      const img = this.kind === 'log' ? TILES.log() : TILES.lift(this.theme);
       ctx.drawImage(img, Math.round(this.x - cam.x), Math.round(this.y - cam.y - (this.kind === 'log' ? 2 : 0)));
     }
   }
@@ -645,6 +725,8 @@
   Mouse.prototype.kind = 'mouse'; Mouse.prototype.netFields = ['squishTimer', 'flipDead'];
   Hedgehog.prototype.kind = 'hedgehog'; Hedgehog.prototype.netFields = ['state', 'squishTimer', 'flipDead', 'wake', 'h'];
   Fish.prototype.kind = 'fish'; Fish.prototype.netFields = ['flipDead'];
+  Boss.prototype.kind = 'boss'; Boss.prototype.netFields = ['state', 'hp', 'maxHp', 'hurtT', 'flipDead', 'onGround'];
+  Bone.prototype.kind = 'bone'; Bone.prototype.netFields = ['flipDead'];
   Platform.prototype.netFields = ['active', 'kind'];
   Bouncer.prototype.kind = 'bouncer'; Bouncer.prototype.netFields = ['squishTimer'];
   FishItem.prototype.kind = 'fishitem'; YarnItem.prototype.kind = 'yarnitem'; StarItem.prototype.kind = 'staritem'; OneUp.prototype.kind = 'oneup';
@@ -660,6 +742,8 @@
       case 'mouse': return new Mouse(x, y);
       case 'hedgehog': return new Hedgehog(x, y);
       case 'fish': return new Fish(x, y);
+      case 'boss': return new Boss(x, y);
+      case 'bone': return new Bone(x, y, 1);
       case 'bouncer': return new Bouncer(x, y);
       case 'fishitem': return new FishItem(x, y);
       case 'yarnitem': return new YarnItem(x, y);
@@ -686,5 +770,5 @@
     return null;
   }
 
-  window.ENT = { makeGhost, fromFx, PHYS, Entity, Player, Mouse, Hedgehog, Fish, Platform, Bouncer, FishItem, YarnItem, StarItem, OneUp, CoinPickup, CoinPop, YarnBall, Puff, Poof, Dust, Sparkle, Afterimage, Fragment, Splash, ScorePop };
+  window.ENT = { makeGhost, fromFx, PHYS, Entity, Player, Mouse, Hedgehog, Fish, Boss, Bone, Platform, Bouncer, FishItem, YarnItem, StarItem, OneUp, CoinPickup, CoinPop, YarnBall, Puff, Poof, Dust, Sparkle, Afterimage, Fragment, Splash, ScorePop };
 })();

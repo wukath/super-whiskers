@@ -22,6 +22,12 @@
       grassLine: '#4e7a30', dark: '#8a6a34', mid: '#b08a48', blades: ['#eaff9a', '#c0e070', '#8fc050'],
       pebble: ['#fff6e0', '#a07a48', '#e0c090'],
     },
+    // mansion: purple stone blocks under a red carpet runner
+    mansion: {
+      dirt: ['#7a5a8e', '#5e4472', '#463256', '#30213c'], grass: ['#ff7a86', '#d8445a', '#a82e46', '#6e1e30'],
+      grassLine: '#4a1424', dark: '#231830', mid: '#30213c', blades: ['#ffd36a', '#ffb347', '#d8445a'],
+      pebble: ['#a88ab8', '#2a1c3a', '#6e5480'],
+    },
   };
   const grassDepth = x => 9 + Math.round(Math.sin(x * 0.45) * 1.5 + Math.sin(x * 1.3 + 1) * 1.2 + (hash(x) - 0.5) * 2.5);
 
@@ -150,8 +156,24 @@
       }
     }));
   }
+  // Iron gate bars that seal the boss arena.
+  function gate() {
+    return memo('gate', () => render(T, T, p => {
+      p.rect(0, 0, T, T, '#1a1024');
+      for (const x of [4, 13, 22]) { p.rect(x, 0, 5, T, '#5a5a6e'); p.rect(x, 0, 1, T, '#8a8aa0'); p.rect(x + 4, 0, 1, T, '#2e2e3c'); }
+      p.rect(0, 6, T, 3, '#4a4a5c'); p.rect(0, 6, T, 1, '#7a7a90'); p.rect(0, 22, T, 3, '#4a4a5c'); p.rect(0, 22, T, 1, '#7a7a90');
+      for (const x of [4, 13, 22]) { p.rect(x + 1, 2, 3, 2, '#c9a04a'); p.px(x + 2, 1, '#ffd36a'); }
+    }));
+  }
   // Moving platform: a grassy slab.
-  function lift() {
+  function lift(theme) {
+    if (theme === 'mansion' || theme === 'cave') return memo('lift' + theme, () => render(64, 16, p => {
+      const wood = theme === 'mansion' ? ['#8a5a3a', '#6a4028', '#4a2c1c', '#2a1810'] : ['#7a7490', '#5c566e', '#443e52', '#2a2636'];
+      p.rect(0, 3, 64, 12, wood[3]); p.rect(1, 4, 62, 10, wood[1]); p.rect(1, 4, 62, 2, wood[0]); p.rect(1, 12, 62, 2, wood[2]);
+      for (let x = 9; x < 64; x += 11) p.rect(x, 5, 1, 8, wood[2]);
+      if (theme === 'mansion') { p.rect(0, 3, 64, 1, '#c9a04a'); p.rect(0, 14, 64, 1, '#c9a04a'); p.rect(2, 1, 3, 3, '#c9a04a'); p.rect(59, 1, 3, 3, '#c9a04a'); }
+      else for (let x = 2; x < 64; x += 7) p.px(x, 4, '#8af0d8');
+    }));
     return memo('lift', () => render(64, 16, p => {
       p.rect(0, 2, 64, 14, '#5d3a24'); p.rect(1, 3, 62, 12, '#9d6236'); p.rect(2, 10, 60, 4, '#7b4a2b');
       for (let x = 0; x < 64; x++) { const gd = 4 + Math.round(Math.sin(x * 0.6) * 1); for (let y = 0; y < gd; y++) p.px(x, 2 + y, y < 1 ? '#b5f26a' : y < 2 ? '#7ddb4e' : '#52b83f'); p.px(x, 2 + gd, '#2a7a35'); if (hash(x * 3.3) > 0.5) { p.px(x, 1, '#8fe358'); if (hash(x) > 0.6) p.px(x, 0, '#c9fb86'); } }
@@ -167,6 +189,42 @@
       p.rect(0, 4, 3, 9, '#5a3418'); p.rect(1, 5, 2, 7, '#d9a66a'); p.rect(1, 7, 1, 3, '#9a5e2e');
       p.rect(61, 4, 3, 9, '#5a3418'); p.rect(61, 5, 2, 7, '#c98a4e');
       p.rect(2, 2, 60, 1, '#e6c08a');
+    }));
+  }
+  // Haunted mansion interior: striped wallpaper, moonlit windows, portraits, candles.
+  function mansionSky(w, h) {
+    return memo('mansionsky', () => render(w, h, (p, c) => {
+      const g = c.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, '#1a1024'); g.addColorStop(0.7, '#2c1a3c'); g.addColorStop(1, '#3a2450');
+      c.fillStyle = g; c.fillRect(0, 0, w, h);
+      for (let x = 0; x < w; x += 24) { p.alpha(0.18, () => p.rect(x, 24, 10, h - 24, '#5a3a78')); p.alpha(0.08, () => p.rect(x + 14, 24, 3, h - 24, '#ffffff')); }
+      // crown moulding and dado rail
+      p.rect(0, 20, w, 6, '#4a2c5a'); p.rect(0, 20, w, 1, '#7a5290'); p.rect(0, 26, w, 2, '#2a1a36');
+      p.rect(0, 228, w, 5, '#4a2c5a'); p.rect(0, 228, w, 1, '#7a5290'); p.rect(0, 233, w, 55, '#3a2448');
+      for (let x = 0; x < w; x += 16) { p.rect(x, 240, 1, 48, '#2a1a36'); p.rect(x + 8, 236, 1, 52, '#4a3058'); }
+      // moonlit arched windows
+      for (const wx of [96, 420]) {
+        for (let y = 0; y < 80; y++) for (let x = 0; x < 52; x++) {
+          const dx = (x - 26) / 26, dy = y < 26 ? (26 - y) / 26 : 0;
+          if (dx * dx + dy * dy > 1) continue;
+          const t = (x + y * 0.5) / 80;
+          p.px(wx + x, 60 + y, t < 0.35 ? '#9ab8ff' : t < 0.7 ? '#6f86d8' : '#4a5aa8');
+        }
+        for (let y = 0; y < 80; y++) { const dy = y < 26 ? (26 - y) / 26 : 0, hw = Math.floor(26 * Math.sqrt(Math.max(0, 1 - dy * dy))); p.px(wx + 26 - hw, 60 + y, '#1a1024'); p.px(wx + 25 + hw, 60 + y, '#1a1024'); }
+        p.rect(wx + 25, 60, 2, 80, '#1a1024'); p.rect(wx, 100, 52, 2, '#1a1024'); p.rect(wx - 2, 138, 56, 4, '#5a3a78');
+        p.alpha(0.12, () => p.rect(wx - 10, 140, 72, 90, '#9ab8ff'));
+      }
+      // moon in the first window
+      p.disc(118, 78, 9, '#fff6d0'); p.disc(122, 76, 7, '#9ab8ff');
+      // portraits
+      for (const px0 of [230, 560]) { p.rect(px0, 70, 30, 40, '#8a6a30'); p.rect(px0 + 2, 72, 26, 36, '#c9a04a'); p.rect(px0 + 4, 74, 22, 32, '#1a1024'); p.rect(px0 + 10, 84, 10, 14, '#2e1e3e'); p.px(px0 + 12, 88, '#ff5a5a'); p.px(px0 + 17, 88, '#ff5a5a'); }
+      // wall candles with glow
+      for (const cx of [40, 300, 340, 600]) {
+        p.alpha(0.14, () => p.disc(cx + 2, 150, 26, '#ffb347')); p.alpha(0.1, () => p.disc(cx + 2, 150, 14, '#ffd36a'));
+        p.rect(cx, 160, 5, 14, '#f2e2c0'); p.rect(cx - 2, 174, 9, 4, '#a07a30'); p.rect(cx + 1, 152, 3, 8, '#ffb347'); p.rect(cx + 2, 150, 1, 4, '#fff3a6');
+      }
+      // cobwebs in the top corners
+      for (let i = 0; i < 24; i++) { p.alpha(0.5, () => { p.px(i, 28 + i, '#bba8cc'); p.px(w - 1 - i, 28 + i, '#bba8cc'); p.px(2 * i, 28 + Math.floor(i / 2), '#bba8cc'); p.px(w - 1 - 2 * i, 28 + Math.floor(i / 2), '#bba8cc'); }); }
     }));
   }
   function caveSky(w, h) {
@@ -368,5 +426,5 @@
     }));
   }
 
-  window.TILES = { T, GROUND_OVER, THEMES, ground, crack, lift, log, caveSky, questionBlock, usedBlock, brick, pipe, waterBack, waterFront, sky, clouds, hills, bush, flower, lily, pole, shadow };
+  window.TILES = { T, GROUND_OVER, THEMES, ground, crack, gate, lift, log, caveSky, mansionSky, questionBlock, usedBlock, brick, pipe, waterBack, waterFront, sky, clouds, hills, bush, flower, lily, pole, shadow };
 })();

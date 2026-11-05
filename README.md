@@ -30,7 +30,7 @@ pipes and the flag take everyone along.
 | Enter a warp pipe | Down while standing on it |
 | Wall jump | Push into a wall while falling, then jump |
 | Pause / mute | P / M |
-| Start at a level | 1 / 2 / 3 on the title screen |
+| Start at a level | 1 – 4 on the title screen |
 | Host / join online | O / J on the title screen |
 
 ## Levels
@@ -38,6 +38,9 @@ pipes and the flag take everyone along.
 1. **Meadow** — grassy intro with a secret bonus cave through the warp pipe.
 2. **Crystal Caves** — underground: wall-jump shaft, falling platforms, a wall you must pounce through.
 3. **Sunset Shore** — beach at dusk, mostly water crossings on logs and islands.
+4. **Evil Mansion** — a haunted house with trapdoors, chandelier lifts and a flooded cellar,
+   ending in a locked arena where **Duke** the bulldog waits. Stomp his head three times
+   (yarn balls and pounces chip him too) while he charges, slams and lobs bones.
 
 Power-ups: fish snack (grow), ball of yarn (throw bouncing yarn balls), star (invincible),
 milk carton (1-up, hidden in invisible blocks).
@@ -49,7 +52,7 @@ Open `index.html` in a browser. That's it.
 ## Layout
 
 - `js/pixel.js` — pixel painter, sprite cache, bitmap font
-- `js/sprites.js`, `js/sprites_extra.js` — pixel maps and animation frames
+- `js/sprites.js`, `js/sprites_extra.js`, `js/sprites_boss.js` — pixel maps and animation frames
 - `js/tiles.js` — tiles, blocks, pipes, water, themed backgrounds
 - `js/level.js` — level definitions and parser
 - `js/entities.js` — player physics, enemies, items, platforms, effects

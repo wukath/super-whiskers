@@ -5,7 +5,8 @@
 //   S  star block    !  hidden 1-up      X  cracked rock   T  pipe (top-left)
 //   W  warp pipe     ~  water            C  coin           ^  bouncy mushroom
 //   m  mouse         h  hedgehog         f  fish           @  start
-//   F  flagpole base H  house (left edge)
+//   F  flagpole base H  house (left edge) G  gate (opens when the boss falls)
+//   Z  boss spawn    A  arena entrance (gate closes here when the fight starts)
 //
 // Moving platforms and warps are listed separately since they carry ranges.
 (function () {
@@ -169,12 +170,48 @@
     return { rows: L.rows(), movers, warps: [], theme: 'sand', name: 'main', time: 400, title: 'SUNSET SHORE' };
   }
 
+  // Level 4: the evil mansion, ending in a boss arena.
+  function buildLevel4() {
+    const W = 186, L = grid(W);
+    const { put, row, fill, pit, water, stairsUp, stairsDown, platform, coins } = L;
+    const movers = [];
+    fill(0, W - 1, GROUND_ROW, ROWS - 1, '#');
+    fill(0, W - 1, 0, 0, '#');
+    fill(0, 0, 0, ROWS - 1, '#'); fill(W - 1, W - 1, 0, ROWS - 1, '#');
+    put(3, 8, '@');
+    // entrance hall: bookcase steps
+    platform(8, 7, 2); platform(11, 5, 2); platform(14, 3, 2); coins(8, 6, 2); coins(11, 4, 2); coins(14, 2, 2); put(10, 8, 'm');
+    pit(17, 20); movers.push({ type: 'fall', c: 17, r: 7 }, { type: 'fall', c: 19, r: 6 });
+    row(23, 5, 'B?BMB'); put(24, 8, 'h'); put(27, 8, 'h');
+    // chandeliers over the great hall
+    pit(31, 40); movers.push({ type: 'vlift', c: 31, r: 7, range: 3 }, { type: 'vlift', c: 35, r: 7, range: 3, phase: Math.PI }, { type: 'vlift', c: 39, r: 7, range: 3 });
+    coins(33, 3, 1); coins(37, 2, 1);
+    fill(44, 44, 5, 8, 'X'); coins(46, 7, 2); put(48, 8, 'm');
+    pit(52, 61); movers.push({ type: 'hlift', c: 52, r: 7, range: 2 }, { type: 'hlift', c: 58, r: 6, range: 2, phase: Math.PI }); coins(55, 4, 3);
+    // library
+    stairsUp(64, 4); put(68, 2, '?'); put(69, 2, 'S'); fill(68, 69, 5, 8, '#'); stairsDown(70, 4); put(66, 8, 'h');
+    put(77, 8, 'm'); put(79, 8, 'm'); put(81, 8, 'm'); row(78, 5, 'BBBB'); put(83, 8, 'h');
+    // flooded cellar
+    water(87, 95); movers.push({ type: 'log', c: 88, r: 9, range: 4 }); put(89, 10, 'f'); put(93, 9, 'f'); coins(88, 6, 4, 2);
+    pit(98, 107); movers.push({ type: 'fall', c: 98, r: 7 }, { type: 'fall', c: 101, r: 6 }, { type: 'fall', c: 104, r: 7 }); coins(100, 4, 1); coins(106, 4, 1);
+    put(111, 8, '^'); coins(109, 2, 6); put(114, 3, '!');
+    row(121, 5, 'BB?BMB'); put(122, 8, 'h'); put(126, 8, 'h'); put(129, 8, 'm');
+    put(133, 7, 'X'); put(133, 8, 'X'); coins(133, 4, 2);
+    // boss arena
+    put(140, 8, 'A');
+    fill(165, 165, 1, 8, 'G');
+    put(156, 8, 'Z');
+    put(173, 8, 'F');
+    put(178, 8, 'H');
+    return { rows: L.rows(), movers, warps: [], theme: 'mansion', name: 'main', time: 400, title: 'EVIL MANSION' };
+  }
+
   function parse(def) {
     const rows = def.rows, H = rows.length, W = rows[0].length;
     const tiles = [];
     for (let r = 0; r < H; r++) tiles.push(new Array(W).fill(null));
     const spawns = [], pipes = [], decor = [];
-    let start = { c: 2, r: 8 }, flag = null, house = null;
+    let start = { c: 2, r: 8 }, flag = null, house = null, arena = null;
     const at = (c, r) => (r >= 0 && r < H && c >= 0 && c < W) ? rows[r][c] : '.';
     for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
       const ch = rows[r][c];
@@ -183,6 +220,9 @@
         case 'B': tiles[r][c] = { type: 'brick', c, r }; break;
         case 'X': tiles[r][c] = { type: 'crack', c, r }; break;
         case '!': tiles[r][c] = { type: 'hidden', item: 'oneup', c, r }; break;
+        case 'G': tiles[r][c] = { type: 'gate', c, r }; break;
+        case 'A': arena = { c, r }; break;
+        case 'Z': spawns.push({ type: 'boss', c, r }); break;
         case '?': tiles[r][c] = { type: 'q', item: 'coin', c, r }; break;
         case 'M': tiles[r][c] = { type: 'q', item: 'power', c, r }; break;
         case 'S': tiles[r][c] = { type: 'q', item: 'star', c, r }; break;
@@ -219,14 +259,14 @@
       if (!t || t.type !== 'ground') continue;
       t.top = !solid(c, r - 1); t.bottom = !solid(c, r + 1); t.left = !solid(c - 1, r); t.right = !solid(c + 1, r);
       t.variant = (c * 7 + r * 3) % 4;
-      if (def.theme === 'cave') continue;
+      if (def.theme === 'cave' || def.theme === 'mansion') continue;
       if (t.top && r === GROUND_ROW && rows[r - 1][c] === '.' && rows[r - 1][c + 1] === '.' && !pipes.some(p => c >= p.c - 1 && c <= p.c + 2)) {
         const hv = PX.hash(c * 1.31 + 5);
         if (hv > 0.9 && rows[r - 1][c + 2] === '.' && c > 4) decor.push({ kind: 'bush', c, r, s: 0.8 + PX.hash(c) * 0.4 });
         else if (hv < 0.22) decor.push({ kind: 'flower', c, r, kind2: Math.floor(PX.hash(c * 9) * 3), dx: Math.floor(PX.hash(c * 2) * 20) });
       }
     }
-    return { W, H, tiles, spawns, pipes, decor, start, flag, house, rows, theme: def.theme, name: def.name, warps: def.warps, time: def.time, title: def.title };
+    return { W, H, tiles, spawns, pipes, decor, start, flag, house, arena, rows, theme: def.theme, name: def.name, warps: def.warps, time: def.time, title: def.title };
   }
 
   // Each stage is a main level plus any sub-areas reached through warps.
@@ -234,7 +274,8 @@
     { main: buildLevel1, extras: [buildBonus] },
     { main: buildLevel2, extras: [] },
     { main: buildLevel3, extras: [] },
+    { main: buildLevel4, extras: [] },
   ];
 
-  window.LEVELS = { ROWS, GROUND_ROW, STAGES, buildLevel1, buildLevel2, buildLevel3, buildBonus, parse };
+  window.LEVELS = { ROWS, GROUND_ROW, STAGES, buildLevel1, buildLevel2, buildLevel3, buildLevel4, buildBonus, parse };
 })();
