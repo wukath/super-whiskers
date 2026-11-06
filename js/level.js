@@ -222,7 +222,7 @@
     movers.push({ type: 'taxis', c: 16, r: 8, len: 18, period: 330, dir: -1 });
     platform(24, 7, 2); movers.push({ type: 'vent', c: 21, r: 8, height: 6 }); platform(17, 3, 3); coins(17, 2, 3); coins(29, 6, 3);
     // buildings A and B with a fire-escape shaft between them
-    fill(32, 37, 4, 8, '#'); fill(40, 46, 2, 8, '#'); platform(38, 6, 1); platform(39, 3, 1); put(34, 3, 'k'); coins(38, 5, 1); coins(39, 2, 1); coins(41, 1, 5); put(44, 8, 'r');
+    fill(32, 37, 4, 8, '#'); fill(40, 46, 2, 8, '#'); platform(30, 6, 2); coins(32, 2, 3); platform(38, 6, 1); platform(39, 3, 1); put(34, 3, 'k'); coins(38, 5, 1); coins(39, 2, 1); coins(41, 1, 5); put(44, 8, 'r');
     movers.push({ type: 'decor', kind: 'tower', c: 44, r: 2 });
     // rooftop run with cabs on the street below
     movers.push({ type: 'taxis', c: 48, r: 8, len: 22, period: 290, dir: -1, phase: 120 });
