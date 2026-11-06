@@ -457,7 +457,7 @@
   // ---------------- City enemies ----------------
   // Rats: faster mice that travel in packs.
   class Rat extends Mouse {
-    constructor(x, y) { super(x, y); this.vx = -1.7; this.points = 100; }
+    constructor(x, y) { super(x, y); this.vx = -1.4; this.points = 100; }
     draw(ctx, cam) {
       const m = S().rat;
       if (this.squishTimer > 0) { const cv = this.facing < 0 ? m.squish.l : m.squish.r; ctx.drawImage(cv, Math.round(this.cx - 16 - cam.x), Math.round(this.bottom - 10 - cam.y)); return; }
@@ -472,11 +472,11 @@
         this.x += this.vx; if (this.x < this.x0 - this.range || this.x > this.x0) { this.vx = -this.vx; }
         this.y = this.y0 + Math.sin(this.t * 0.05) * 10;
         if (this.cool > 0) this.cool--;
-        const t = game.alivePlayers().find(p => Math.abs(p.cx - this.cx) < 60 && p.y > this.y + 30 && p.y < this.y + 220);
-        if (t && !(this.cool > 0)) { this.state = 'swoop'; this.stateT = 0; this.ty = t.y; this.sdir = Math.sign(t.cx - this.cx) || this.facing; this.cool = 150; }
+        const t = game.alivePlayers().find(p => Math.abs(p.cx - this.cx) < 44 && p.y > this.y + 30 && p.y < this.y + 220);
+        if (t && !(this.cool > 0)) { this.state = 'swoop'; this.stateT = 0; this.ty = t.y; this.sdir = Math.sign(t.cx - this.cx) || this.facing; this.cool = 240; }
       } else {
         this.stateT++;
-        if (this.stateT < 30) { this.y += 4.5; this.x += this.sdir * 1.6; if (this.y > this.ty) this.stateT = 30; }
+        if (this.stateT < 30) { this.y += 3.4; this.x += this.sdir * 1.3; if (this.y > this.ty) this.stateT = 30; }
         else { this.y -= 3.2; this.x += this.sdir * 0.8; if (this.y <= this.y0) { this.y = this.y0; this.state = 'fly'; this.x0 = Math.min(this.x0, this.x + this.range); } }
       }
       this.facing = this.vx < 0 ? -1 : 1; if (this.state === 'swoop') this.facing = this.sdir;
@@ -493,7 +493,7 @@
       const t = game.alivePlayers().sort((a, b) => Math.abs(a.cx - this.cx) - Math.abs(b.cx - this.cx))[0];
       if (t) this.facing = t.cx < this.cx ? -1 : 1;
       if (--this.throwT <= 0) {
-        this.throwT = 110;
+        this.throwT = 160;
         if (t && Math.abs(t.cx - this.cx) < 320) { const d = t.cx - this.cx; game.add(new Lid(this.cx + this.facing * 8, this.y - 4, Math.max(-4, Math.min(4, d / 60)), -7.5)); this.throwing = 18; AUDIO.SFX.yarn(); }
       }
       if (this.throwing > 0) this.throwing--;
@@ -516,7 +516,7 @@
   }
   // Yellow cabs barrel along the street. They hurt from the side but you can ride the roof.
   class Taxi extends Enemy {
-    constructor(x, y, dir) { super(x, y, 58, 22); this.vx = 5.6 * dir; this.facing = dir; this.isPlatform = true; this.isTaxi = true; this.active = true; this.dx = 0; this.dy = 0; this.points = 0; this.riders = 0; this.life = 600; }
+    constructor(x, y, dir) { super(x, y, 58, 22); this.vx = 4.3 * dir; this.facing = dir; this.isPlatform = true; this.isTaxi = true; this.active = true; this.dx = 0; this.dy = 0; this.points = 0; this.riders = 0; this.life = 600; }
     ridden() { this.riders = 2; }
     behave(game) {
       const px = this.x; this.x += this.vx; this.dx = this.x - px; this.dy = 0;
@@ -534,7 +534,7 @@
     update(game) {
       const near = game.alivePlayers().some(p => p.cx > this.x - 200 && p.cx < this.x + this.w + 200);
       if (!near) { this.timer = Math.min(this.timer, 60); return; }
-      if (--this.timer === 40) { AUDIO.SFX.honk(); game.add(new ScorePop(game.cam.x + (this.dir < 0 ? 560 : 40), this.y - 10, 'HONK!')); }
+      if (--this.timer === 70) { AUDIO.SFX.honk(); game.add(new ScorePop(game.cam.x + (this.dir < 0 ? 560 : 40), this.y - 10, 'HONK!')); }
       if (this.timer <= 0) {
         this.timer = this.spec.period || 230;
         const x = this.dir < 0 ? Math.max(this.x + this.w, game.cam.x + 660) : Math.min(this.x - 64, game.cam.x - 80);

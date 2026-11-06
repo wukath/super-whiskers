@@ -792,7 +792,7 @@
       else if (this.helpOpen) { ctx.fillStyle = 'rgba(20,20,40,0.78)'; ctx.fillRect(0, 60, VW, 270); this.center('CONTROLS', 80, 3, '#ffe27a'); this.center('PRESS H TO CLOSE', 112, 1, '#ffffff'); this.drawControls(140); P.text('TIP: STOMP ENEMIES, POUND CRACKED TILES, POUNCE THROUGH CRACKED WALLS', 56, 300, 1, '#dfe8ff', '#3a2a3a'); }
       else if (this.state === 'pause') { ctx.fillStyle = 'rgba(20,20,40,0.6)'; ctx.fillRect(0, 60, VW, 270); this.center('PAUSED', 80, 3, '#ffe27a'); this.center(this.isGuest ? 'THE HOST PAUSED THE GAME' : 'PRESS P TO CONTINUE', 112, 1, '#ffffff'); this.drawControls(140); }
       else if (this.state === 'gameover') this.banner('GAME OVER', this.isGuest ? 'WAITING FOR THE HOST' : 'PRESS ENTER');
-      else if (this.state === 'ending') { this.banner('YOU WIN!', 'DUKE IS BEATEN - THE CATS ARE HOME'); this.center('FINAL SCORE ' + this.scoreVal, 250, 2, '#ffe27a'); if (!this.isGuest) this.center('PRESS ENTER', 280, 1, '#ffffff'); }
+      else if (this.state === 'ending') { this.banner('YOU WIN!', 'ALL THE CATS ARE HOME'); this.center('FINAL SCORE ' + this.scoreVal, 250, 2, '#ffe27a'); if (!this.isGuest) this.center('PRESS ENTER', 280, 1, '#ffffff'); }
       else if (this.state === 'clear' && this.clearTimer > 0) this.banner('LEVEL CLEAR!', this.players.length > 1 ? 'THE CATS ARE HOME' : 'WHISKERS IS HOME');
       if (this.netMsg && this.state === 'title') this.center(this.netMsg, 346, 1, '#ff9f9f');
     }

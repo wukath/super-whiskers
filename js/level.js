@@ -216,37 +216,38 @@
     for (let c = 0; c < W; c++) for (let r = GROUND_ROW; r < ROWS; r++) put(c, r, '#');
     put(3, 8, '@');
     // opening block
-    row(8, 5, '?B?'); coins(6, 3, 2); put(11, 8, 'r'); put(12, 8, 'r'); put(13, 8, 'r'); put(14, 4, 'g');
+    row(8, 5, '?B?'); coins(6, 3, 2); put(12, 8, 'r'); put(13, 8, 'r'); put(15, 4, 'g');
     movers.push({ type: 'decor', kind: 'cart', c: 5, r: 8 });
     // avenue 1: cabs, a median and a steam vent up to a ledge
-    movers.push({ type: 'taxis', c: 16, r: 8, len: 18, period: 230, dir: -1 });
+    movers.push({ type: 'taxis', c: 16, r: 8, len: 18, period: 330, dir: -1 });
     platform(24, 7, 2); movers.push({ type: 'vent', c: 21, r: 8, height: 6 }); platform(17, 3, 3); coins(17, 2, 3); coins(29, 6, 3);
     // buildings A and B with a fire-escape shaft between them
-    fill(32, 37, 4, 8, '#'); fill(40, 46, 2, 8, '#'); put(34, 3, 'k'); coins(38, 6, 1); coins(39, 4, 1); coins(41, 1, 5); put(44, 8, 'r'); put(45, 8, 'r');
+    fill(32, 37, 4, 8, '#'); fill(40, 46, 2, 8, '#'); platform(38, 6, 1); platform(39, 3, 1); put(34, 3, 'k'); coins(38, 5, 1); coins(39, 2, 1); coins(41, 1, 5); put(44, 8, 'r');
     movers.push({ type: 'decor', kind: 'tower', c: 44, r: 2 });
     // rooftop run with cabs on the street below
-    movers.push({ type: 'taxis', c: 48, r: 8, len: 22, period: 200, dir: -1, phase: 120 });
-    fill(50, 54, 3, 8, '#'); fill(57, 60, 5, 8, '#'); fill(63, 66, 2, 8, '#'); put(52, 2, 'k'); put(58, 3, 'g'); coins(57, 4, 4); coins(63, 1, 4); put(61, 8, 'r'); put(49, 8, 'r');
+    movers.push({ type: 'taxis', c: 48, r: 8, len: 22, period: 290, dir: -1, phase: 120 });
+    fill(50, 54, 3, 8, '#'); fill(57, 60, 5, 8, '#'); fill(63, 66, 2, 8, '#'); put(52, 2, 'k'); coins(57, 4, 4); coins(63, 1, 4); put(61, 8, 'r');
     movers.push({ type: 'decor', kind: 'tower', c: 64, r: 2 });
     // the El: drop onto the station platform, board the train, duck under the signal boxes
-    platform(68, 4, 3); pit(67, 99); fill(100, 103, 3, 8, '#');
-    put(80, 1, '#'); put(88, 1, '#'); put(96, 1, '#'); coins(84, 2, 1); coins(92, 2, 1); put(90, 1, 'g');
+    platform(68, 4, 3); fill(100, 103, 3, 8, '#');
+    movers.push({ type: 'taxis', c: 70, r: 8, len: 30, period: 300, dir: -1, phase: 200 });
+    put(80, 1, '#'); put(88, 1, '#'); put(96, 1, '#'); coins(84, 2, 1); coins(92, 2, 1); coins(76, 7, 4, 2); coins(88, 7, 4, 2);
     movers.push({ type: 'train', c: 68, r: 3, range: 38, dir: 1 });
     // steam vents over open manholes
     pit(108, 109); pit(113, 114); pit(118, 119);
     movers.push({ type: 'vent', c: 106, r: 8, height: 4, phase: 0 }, { type: 'vent', c: 111, r: 8, height: 4, phase: 50 }, { type: 'vent', c: 116, r: 8, height: 4, phase: 100 }, { type: 'vent', c: 121, r: 8, height: 4, phase: 150 });
-    coins(106, 4, 1); coins(111, 4, 1); coins(116, 4, 1); coins(121, 4, 1); put(123, 8, 'r');
+    coins(106, 4, 1); coins(111, 4, 1); coins(116, 4, 1); coins(121, 4, 1);
     // building climb with raccoons on the towers
-    fill(126, 128, 2, 8, '#'); fill(132, 134, 2, 8, '#'); platform(129, 6, 1); platform(131, 4, 1); put(127, 1, 'k'); put(133, 1, 'k'); coins(129, 3, 1); coins(130, 1, 1); put(130, 7, 'g');
+    fill(126, 128, 2, 8, '#'); fill(132, 134, 2, 8, '#'); platform(129, 6, 1); platform(131, 3, 1); put(133, 1, 'k'); coins(129, 5, 1); coins(131, 2, 1); put(130, 7, 'C');
     // Times Square: billboards, rats, cabs
-    movers.push({ type: 'taxis', c: 140, r: 8, len: 26, period: 250, dir: -1, phase: 60 });
-    row(144, 4, '?BB?BB?'); row(152, 2, 'BMB'); put(146, 8, 'r'); put(147, 8, 'r'); put(148, 8, 'r'); put(150, 3, 'g'); put(158, 3, 'g'); put(160, 8, 'r');
+    movers.push({ type: 'taxis', c: 140, r: 8, len: 26, period: 320, dir: -1, phase: 60 });
+    row(144, 4, '?BB?BB?'); row(152, 2, 'BMB'); put(146, 8, 'r'); put(147, 8, 'r'); put(154, 3, 'g'); put(160, 8, 'r');
     movers.push({ type: 'decor', kind: 'cart', c: 163, r: 8 });
     // home stretch
     put(168, 8, 'h'); stairsUp(172, 6); fill(178, 178, 3, 8, '#');
     put(184, 8, 'F');
     put(190, 8, 'H');
-    return { rows: L.rows(), movers, warps: [], theme: 'nyc', name: 'main', time: 400, title: 'MIDTOWN RUSH' };
+    return { rows: L.rows(), movers, warps: [], theme: 'nyc', name: 'main', time: 450, title: 'MIDTOWN RUSH' };
   }
 
   function parse(def) {
@@ -320,8 +321,8 @@
     { main: buildLevel1, extras: [buildBonus] },
     { main: buildLevel2, extras: [] },
     { main: buildLevel3, extras: [] },
-    { main: buildLevel5, extras: [] },
     { main: buildLevel4, extras: [] },
+    { main: buildLevel5, extras: [] },
   ];
 
   window.LEVELS = { ROWS, GROUND_ROW, STAGES, buildLevel1, buildLevel2, buildLevel3, buildLevel4, buildLevel5, buildBonus, parse };

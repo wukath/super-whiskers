@@ -40,12 +40,12 @@ pipes and the flag take everyone along.
 1. **Meadow** — grassy intro with a secret bonus cave through the warp pipe.
 2. **Crystal Caves** — underground: wall-jump shaft, falling platforms, a wall you must pounce through.
 3. **Sunset Shore** — beach at dusk, mostly water crossings on logs and islands.
-4. **Midtown Rush** — New York at night. Dodge or ride yellow cabs, wall-jump up fire
-   escapes to the rooftops, ride an elevated train (duck under the signals), surf steam
-   vents over open manholes. Rats, swooping pigeons and lid-throwing raccoons.
-5. **Evil Mansion** — a haunted house with trapdoors, chandelier lifts and a flooded cellar,
+4. **Evil Mansion** — a haunted house with trapdoors, chandelier lifts and a flooded cellar,
    ending in a locked arena where **Duke** the bulldog waits. Stomp his head three times
    (yarn balls and pounces chip him too) while he charges, slams and lobs bones.
+5. **Midtown Rush** — New York at night. Dodge or ride yellow cabs, climb fire escapes to
+   the rooftops, ride an elevated train (duck under the signals), surf steam vents over
+   open manholes. Rats, swooping pigeons and lid-throwing raccoons.
 
 Power-ups: fish snack (grow), ball of yarn (throw bouncing yarn balls), star (invincible),
 milk carton (1-up, hidden in invisible blocks).
