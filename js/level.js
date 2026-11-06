@@ -238,7 +238,7 @@
     movers.push({ type: 'vent', c: 106, r: 8, height: 4, phase: 0 }, { type: 'vent', c: 111, r: 8, height: 4, phase: 50 }, { type: 'vent', c: 116, r: 8, height: 4, phase: 100 }, { type: 'vent', c: 121, r: 8, height: 4, phase: 150 });
     coins(106, 4, 1); coins(111, 4, 1); coins(116, 4, 1); coins(121, 4, 1);
     // building climb with raccoons on the towers
-    fill(126, 128, 2, 8, '#'); fill(132, 134, 2, 8, '#'); platform(129, 6, 1); platform(131, 3, 1); put(133, 1, 'k'); coins(129, 5, 1); coins(131, 2, 1); put(130, 7, 'C');
+    fill(126, 128, 2, 6, '#'); fill(132, 134, 2, 8, '#'); platform(129, 6, 1); platform(131, 3, 1); put(133, 1, 'k'); coins(129, 5, 1); coins(131, 2, 1); put(130, 7, 'C');
     // Times Square: billboards, rats, cabs
     movers.push({ type: 'taxis', c: 140, r: 8, len: 26, period: 320, dir: -1, phase: 60 });
     row(144, 4, '?BB?BB?'); row(152, 2, 'BMB'); put(146, 8, 'r'); put(147, 8, 'r'); put(160, 8, 'r');
