@@ -216,7 +216,7 @@
     for (let c = 0; c < W; c++) for (let r = GROUND_ROW; r < ROWS; r++) put(c, r, '#');
     put(3, 8, '@');
     // opening block
-    row(8, 5, '?B?'); coins(6, 3, 2); put(12, 8, 'r'); put(13, 8, 'r'); put(15, 4, 'g');
+    row(8, 5, '?B?'); coins(6, 3, 2); put(12, 8, 'r'); put(13, 8, 'r');
     movers.push({ type: 'decor', kind: 'cart', c: 5, r: 8 });
     // avenue 1: cabs, a median and a steam vent up to a ledge
     movers.push({ type: 'taxis', c: 16, r: 8, len: 18, period: 330, dir: -1 });
@@ -241,7 +241,7 @@
     fill(126, 128, 2, 8, '#'); fill(132, 134, 2, 8, '#'); platform(129, 6, 1); platform(131, 3, 1); put(133, 1, 'k'); coins(129, 5, 1); coins(131, 2, 1); put(130, 7, 'C');
     // Times Square: billboards, rats, cabs
     movers.push({ type: 'taxis', c: 140, r: 8, len: 26, period: 320, dir: -1, phase: 60 });
-    row(144, 4, '?BB?BB?'); row(152, 2, 'BMB'); put(146, 8, 'r'); put(147, 8, 'r'); put(154, 3, 'g'); put(160, 8, 'r');
+    row(144, 4, '?BB?BB?'); row(152, 2, 'BMB'); put(146, 8, 'r'); put(147, 8, 'r'); put(160, 8, 'r');
     movers.push({ type: 'decor', kind: 'cart', c: 163, r: 8 });
     // home stretch
     put(168, 8, 'h'); stairsUp(172, 6); fill(178, 178, 3, 8, '#');
