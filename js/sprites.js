@@ -210,6 +210,9 @@
     const cv = render(w, h, p => { p.blit(body, mousePal, 0, 0); p.blit(lf, mousePal, dx, h - 2); p.blit(rf, mousePal, -dx, h - 2); });
     return { l: cv, r: flipH(cv) };
   }
+  const ratPal = Object.assign({}, mousePal, { H: '#9a8a78', G: '#6e5e50', D: '#4e4036', R: '#362a24', P: '#d89aa0', p: '#a86a74', K: '#241a16' });
+  const ratSquish = render(32, 22, (p, ctx) => { ctx.drawImage(spriteFromMap(MAPS.MOUSE, ratPal), 0, 12, 32, 10); });
+  const rat = { walk: [0, 1].map(k => { const rows = MAPS.MOUSE, w = rows[0].length, h = rows.length, dx = k ? -1 : 1; const body = rows.slice(0, h - 2), feet = rows.slice(h - 2); const lf = feet.map(s => s.slice(0, 13)), rf = feet.map(s => '.'.repeat(13) + s.slice(13)); const cv = render(w, h, p => { p.blit(body, ratPal, 0, 0); p.blit(lf, ratPal, dx, h - 2); p.blit(rf, ratPal, -dx, h - 2); }); return { l: cv, r: flipH(cv) }; }), squish: { l: ratSquish, r: flipH(ratSquish) } };
   const squishSrc = spriteFromMap(MAPS.MOUSE, mousePal);
   const squish = render(32, 22, (p, ctx) => { ctx.drawImage(squishSrc, 0, 12, 32, 10); });
   const mouse = { walk: [mouseFrame(1), mouseFrame(-1)], squish: { l: squish, r: flipH(squish) }, w: 32, h: 22 };
@@ -247,6 +250,11 @@
   }
   const extras = {};
   for (const n of ['HEDGEHOG', 'HEDGEHOG_BALL', 'FISH_ITEM', 'YARN_ITEM', 'YARN_BALL', 'YARN_BALL2', 'FLAG', 'HOUSE', 'STAR']) extras[n] = ex(n);
+  for (const n of ['TAXI', 'TAXI2', 'TRAIN_FRONT', 'TRAIN_CAR', 'PIGEON', 'PIGEON2', 'RACCOON', 'RACCOON_THROW', 'LID', 'VENT', 'WATER_TOWER', 'HOTDOG_CART']) {
+    const sb = window.SPR_CITY && window.SPR_CITY[n];
+    if (sb) { const cv = spriteFromMap(sb.rows, sb.pal); extras[n] = { l: cv, r: flipH(cv), w: sb.w, h: sb.h }; }
+    else { const cv = render(32, 16, p => { p.rect(0, 0, 32, 16, '#ff00ff'); p.rect(4, 4, 24, 8, '#000000'); }); extras[n] = { l: cv, r: cv, w: 32, h: 16 }; }
+  }
   for (const n of ['BOSS', 'BOSS_WALK', 'BOSS_HURT', 'BOSS_CHARGE', 'BONE', 'CANDLE', 'PORTRAIT']) {
     const sb = window.SPR_BOSS && window.SPR_BOSS[n];
     if (sb) { const cv = spriteFromMap(sb.rows, sb.pal); extras[n] = { l: cv, r: flipH(cv), w: sb.w, h: sb.h }; }
@@ -321,5 +329,5 @@
   const milkPal = { K: '#2a3a5a', W: '#ffffff', w: '#d8e2f0', B: '#4a9bff', E: '#2a1830', P: '#ff8fa3' };
   const milk = spriteFromMap(MILK, milkPal);
 
-  window.SPRITES = { MAPS, catPal, yarnPal, mousePal, fishPal, coinPal, cat, cats, CAT_NAMES, mouse, fish, coin, scoin, hcat, hedgehog, extras, frag, rockFrag, mushroom, milk };
+  window.SPRITES = { MAPS, catPal, yarnPal, mousePal, fishPal, coinPal, cat, cats, CAT_NAMES, mouse, rat, fish, coin, scoin, hcat, hedgehog, extras, frag, rockFrag, mushroom, milk };
 })();

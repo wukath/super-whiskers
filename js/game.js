@@ -58,7 +58,7 @@
           case 'ShiftLeft': case 'ShiftRight': case 'KeyX': case 'KeyJ': return 'run';
           case 'KeyC': case 'KeyL': return 'dash';
           case 'Enter': return 'start';
-          case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': return 'lvl' + code[5];
+          case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5': case 'Digit6': return 'lvl' + code[5];
           case 'KeyP': return 'pause';
           case 'KeyH': case 'Slash': case 'F1': return 'help';
           case 'KeyM': return 'mute';
@@ -206,7 +206,7 @@
         this.me = this.players.find(p => p.id === this.myId) || null; if (this.me) { this.me.errX = 0; this.me.errY = 0; }
         this.pending = [];
         const th = this.level.theme;
-        this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th) };
+        this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : th === 'nyc' ? TILES.citySky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th), far: TILES.skyline(1280, 200, true), near: TILES.skyline(1280, 170, false) };
         this.state = 'intro'; this.stateTimer = 0;
       } else if (d.t === 'S') {
         d.recv = performance.now(); this.snaps.push(d); if (this.snaps.length > 12) this.snaps.shift();
@@ -324,6 +324,7 @@
         seen.add(se.id);
       }
       for (const id of [...this.ghosts.keys()]) if (!seen.has(id)) this.ghosts.delete(id);
+      for (const gh of this.ghosts.values()) if (gh.clientTick) gh.clientTick();
       this.entities = [...this.ghosts.values(), ...this.fxLocal];
       // camera: follow the group like the host does, but using our predicted cat
       if (this.state === 'play' && this.me) {
@@ -384,6 +385,12 @@
           else if (s.type === 'fish') e = new E.Fish(x + 4, y - 18);
           else if (s.type === 'bouncer') e = new E.Bouncer(x + 2, y - 18);
           else if (s.type === 'boss') e = new E.Boss(x - 10, y - 40);
+          else if (s.type === 'rat') e = new E.Rat(x + 4, y - 20);
+          else if (s.type === 'pigeon') e = new E.Pigeon(x + 6, y - 24, 160);
+          else if (s.type === 'raccoon') e = new E.Raccoon(x + 5, y - 28);
+          else if (s.type === 'taxis') e = new E.TaxiSpawner(s);
+          else if (s.type === 'vent') e = new E.Vent(s);
+          else if (s.type === 'train') { e = new E.Platform(s); e.range = s.range * T; }
           else if (s.type === 'hlift' || s.type === 'vlift' || s.type === 'fall' || s.type === 'log') { e = new E.Platform(s); e.theme = level.theme; }
           if (e) { e.nid = this.nid++; entities.push(e); }
         }
@@ -404,7 +411,7 @@
       this.cam.x = 0; this.flagY = 0; this.clearTimer = 0; this.warp = null; this.fxQueue = []; this.sfxQueue = []; this.flagPlayer = null; this.bossStarted = false;
       AUDIO.MUSIC.setRate(1);
       const th = this.level.theme;
-      this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th) };
+      this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : th === 'nyc' ? TILES.citySky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th), far: TILES.skyline(1280, 200, true), near: TILES.skyline(1280, 170, false) };
       if (this.mode === 'host' && this.state !== 'lobby' && this.state !== 'title') this.sendLevel();
     }
     setWorld(name) {
@@ -425,7 +432,7 @@
     splash(x, y) { this.add(new E.Splash(x, y)); AUDIO.SFX.splash(); }
     shake(frames, mag) { if (frames >= this.shakeT) { this.shakeT = frames; this.shakeMag = mag; } }
     // Which tune a level plays; the boss arena overrides it.
-    get song() { if (this.bossStarted === true) return 'boss'; const th = this.level && this.level.theme; return th === 'cave' ? 'caves' : th === 'sand' ? 'shore' : th === 'mansion' ? 'mansion' : 'meadow'; }
+    get song() { if (this.bossStarted === true) return 'boss'; const th = this.level && this.level.theme; return th === 'cave' ? 'caves' : th === 'sand' ? 'shore' : th === 'mansion' ? 'mansion' : th === 'nyc' ? 'midtown' : 'meadow'; }
     musicStar() { AUDIO.MUSIC.setRate(1.2); }
     musicNormal() { AUDIO.MUSIC.setRate(this.time <= 100 ? 1.25 : 1); }
     alivePlayers() { return this.players.filter(p => p.alive); }
@@ -597,6 +604,7 @@
         if (e.remove || !e.active) continue;
         if (e.isEnemy) {
           if (e.flipDead || e.squishTimer > 0) continue;
+          if (e.isTaxi) { if (p.carrier !== e && p.overlaps(e) && p.prevBottom > e.y + 6) e.touch(this, p); continue; }
           // Remote players saw this enemy where it was `lag` frames ago; judge the hit there.
           let box = e;
           if (lag > 0 && e.hist && e.hist.length) { const h = e.hist[Math.max(0, e.hist.length - 1 - lag)]; box = { x: h[0], y: h[1], w: e.w, h: e.h }; }
@@ -713,11 +721,16 @@
     render() {
       const ctx = this.ctx, cam = this.cam, lv = this.level, P = this.painter;
       if (this.state === 'join' || this.state === 'connecting' || this.state === 'lobby') { this.drawLobby(); return; }
-      const cave = lv.theme === 'cave' || lv.theme === 'mansion';
-      ctx.drawImage(cave ? this.bg.cave : this.bg.sky, 0, 0);
+      const cave = lv.theme === 'cave' || lv.theme === 'mansion', city = lv.theme === 'nyc';
+      ctx.drawImage(cave || city ? this.bg.cave : this.bg.sky, 0, 0);
       ctx.save();
       if (this.shakeT > 0) ctx.translate(Math.round((Math.random() - 0.5) * 2 * this.shakeMag), Math.round((Math.random() - 0.5) * 2 * this.shakeMag));
-      if (!cave) {
+      if (city) {
+        const far = this.bg.far, near = this.bg.near, gy = LEVELS.GROUND_ROW * T;
+        const fx0 = -((cam.x * 0.15) % far.width), nx0 = -((cam.x * 0.4) % near.width);
+        ctx.drawImage(far, Math.round(fx0), gy - far.height); ctx.drawImage(far, Math.round(fx0 + far.width), gy - far.height);
+        ctx.drawImage(near, Math.round(nx0), gy - near.height); ctx.drawImage(near, Math.round(nx0 + near.width), gy - near.height);
+      } else if (!cave) {
         const cw = this.bg.clouds.width, cx0 = -((cam.x * 0.25) % cw);
         ctx.drawImage(this.bg.clouds, Math.round(cx0), 0); ctx.drawImage(this.bg.clouds, Math.round(cx0 + cw), 0);
         const hw = this.bg.hills.width, hx0 = -((cam.x * 0.5) % hw), hy = LEVELS.GROUND_ROW * T - this.bg.hills.height;
@@ -727,6 +740,8 @@
       for (const d of lv.decor) {
         if (d.c < c0 - 3 || d.c > c1) continue;
         if (d.kind === 'bush') { const b = TILES.bush(Math.round(d.s * 10) / 10); ctx.drawImage(b, Math.round(d.c * T - cam.x), d.r * T - b.height + 1); }
+        else if (d.kind === 'tower') { const s = SPRITES.extras.WATER_TOWER.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), d.r * T - s.height); }
+        else if (d.kind === 'cart') { const s = SPRITES.extras.HOTDOG_CART.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
       }
       if (lv.house) { const hs = SPRITES.extras.HOUSE.r; ctx.drawImage(hs, Math.round(lv.house.c * T - cam.x), (lv.house.r + 1) * T - hs.height); }
       if (lv.flag) {
@@ -741,7 +756,7 @@
       for (let r = 0; r < lv.H; r++) for (let c = c0; c <= c1; c++) {
         const t = lv.tiles[r][c]; if (!t) continue;
         const x = Math.round(c * T - cam.x), y = r * T;
-        if (t.type === 'ground') ctx.drawImage(TILES.ground(t.variant, t.top, t.bottom, t.left, t.right, lv.theme), x, y - GROUND_OVER);
+        if (t.type === 'ground') ctx.drawImage(TILES.ground(t.variant, t.top, t.bottom, t.left, t.right, city && r >= LEVELS.GROUND_ROW ? 'nycroad' : lv.theme), x, y - GROUND_OVER);
         else if (t.type === 'water') ctx.drawImage(TILES.waterBack(t.depth, wf), x, y);
         else if (t.type === 'hidden') continue;
         else if (t.type === 'gate') ctx.drawImage(TILES.gate(), x, y);
@@ -847,7 +862,7 @@
       if ((this.frame % 60) < 40) this.center('ENTER  PLAY SOLO', 176, 2, '#ffffff');
       this.center('O  HOST AN ONLINE CO-OP GAME', 204, 1, '#bfe8ff');
       this.center('J  JOIN A FRIEND\'S ROOM', 218, 1, '#bfe8ff');
-      const lines = ['ARROWS / WASD  MOVE      SPACE / Z  JUMP      SHIFT / X  RUN + THROW YARN', 'C  POUNCE      DOWN  DUCK / CRAWL      DOWN IN AIR  GROUND POUND      DOWN ON PIPE  ENTER', 'JUMP OFF WALLS      P PAUSE   M MUTE   H HELP      1 - 4  START AT A LEVEL'];
+      const lines = ['ARROWS / WASD  MOVE      SPACE / Z  JUMP      SHIFT / X  RUN + THROW YARN', 'C  POUNCE      DOWN  DUCK / CRAWL      DOWN IN AIR  GROUND POUND      DOWN ON PIPE  ENTER', 'JUMP OFF WALLS      P PAUSE   M MUTE   H HELP      1 - 5  START AT A LEVEL'];
       lines.forEach((l, i) => this.center(l, 256 + i * 12, 1, '#dfe8ff'));
     }
     drawLobby() {

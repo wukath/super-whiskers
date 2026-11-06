@@ -22,6 +22,17 @@
       grassLine: '#4e7a30', dark: '#8a6a34', mid: '#b08a48', blades: ['#eaff9a', '#c0e070', '#8fc050'],
       pebble: ['#fff6e0', '#a07a48', '#e0c090'],
     },
+    // nyc buildings: brownstone brick with concrete ledges; streets use nycroad
+    nyc: {
+      dirt: ['#a8655a', '#8a4e44', '#683a32', '#46261f'], grass: ['#d4d4dc', '#b4b4c0', '#8c8c9a', '#606070'],
+      grassLine: '#4a4a58', dark: '#2e1a16', mid: '#46261f', blades: ['#d4d4dc', '#b4b4c0', '#8c8c9a'], noBlades: true,
+      pebble: ['#c08a7a', '#3a201a', '#8a5a4a'],
+    },
+    nycroad: {
+      dirt: ['#50505c', '#40404a', '#30303a', '#202028'], grass: ['#cfcfd8', '#aeaeba', '#848492', '#5a5a68'],
+      grassLine: '#44444f', dark: '#16161c', mid: '#202028', blades: ['#cfcfd8', '#aeaeba', '#848492'], noBlades: true,
+      pebble: ['#6a6a78', '#16161c', '#3c3c48'],
+    },
     // mansion: purple stone blocks under a red carpet runner
     mansion: {
       dirt: ['#7a5a8e', '#5e4472', '#463256', '#30213c'], grass: ['#ff7a86', '#d8445a', '#a82e46', '#6e1e30'],
@@ -51,7 +62,7 @@
             p.px(i, y, p.pick(dirtRamp, t, x, j + variant * 3, 0.9));
           }
         }
-        if (top) {
+        if (top && !th.noBlades) {
           const bh = hash(x * 3.3);
           if (bh > 0.45) {
             const h = 2 + Math.floor(hash(x + 91) * 4), lean = hash(x + 17) > 0.5 ? 1 : -1;
@@ -75,6 +86,8 @@
         const rx = Math.floor(hash(variant * 9.7 + k) * 28), ry = 6 + Math.floor(hash(variant * 4.9 + k * 2) * 22);
         p.rect(rx, GROUND_OVER + ry, 3, 1, th.mid); p.px(rx + 1, GROUND_OVER + ry + 1, th.dark);
       }
+      if (theme === 'nyc') for (let j = (top ? 12 : 0); j < T; j += 6) { p.rect(0, GROUND_OVER + j, T, 1, '#5a3028'); for (let i = ((j / 6) % 2) * 8; i < T; i += 16) p.rect(i, GROUND_OVER + j, 1, 6, '#5a3028'); }
+      if (theme === 'nycroad' && top) { p.rect(0, GROUND_OVER + 7, T, 1, '#f2c84a'); if (variant % 2 === 0) p.rect(4, GROUND_OVER + 20, 18, 2, '#e8e8d0'); }
       // exposed edges
       if (bottom) { p.rect(0, GROUND_OVER + T - 2, T, 2, th.dark); p.rect(0, GROUND_OVER + T - 3, T, 1, th.mid); }
       if (left) { p.rect(0, GROUND_OVER + (top ? 2 : 0), 1, T, top ? th.grassLine : th.dark); p.rect(0, GROUND_OVER + (top ? grassDepth(ox) : 0), 1, T, th.dark); }
@@ -225,6 +238,37 @@
       }
       // cobwebs in the top corners
       for (let i = 0; i < 24; i++) { p.alpha(0.5, () => { p.px(i, 28 + i, '#bba8cc'); p.px(w - 1 - i, 28 + i, '#bba8cc'); p.px(2 * i, 28 + Math.floor(i / 2), '#bba8cc'); p.px(w - 1 - 2 * i, 28 + Math.floor(i / 2), '#bba8cc'); }); }
+    }));
+  }
+  // Night-time Manhattan: deep blue sky, moon, and two parallax skyline strips.
+  function citySky(w, h) {
+    return memo('citysky', () => render(w, h, (p, c) => {
+      const g = c.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, '#07091c'); g.addColorStop(0.55, '#1a1540'); g.addColorStop(1, '#3a2458');
+      c.fillStyle = g; c.fillRect(0, 0, w, h);
+      for (let k = 0; k < 60; k++) { const x = Math.floor(hash(k * 3.1) * w), y = Math.floor(hash(k * 7.7) * 150); p.alpha(0.5 + hash(k) * 0.5, () => p.px(x, y, k % 5 === 0 ? '#fff6d0' : '#c8d8ff')); }
+      p.alpha(0.12, () => p.disc(530, 58, 40, '#fff6d0')); p.disc(530, 58, 22, '#fff1b8'); p.disc(538, 52, 18, '#1a1540'); p.alpha(0.35, () => p.disc(538, 52, 18, '#2a2050'));
+    }));
+  }
+  function skyline(w, h, far) {
+    return memo('skyline' + (far ? 'f' : 'n'), () => render(w, h, p => {
+      const base = far ? ['#181838', '#202048'] : ['#262040', '#2e2650'];
+      const win = far ? ['#5a5a80', '#8a7a60'] : ['#ffe9a0', '#ffd36a', '#9ad7ff'];
+      let x = 0, k = 0;
+      while (x < w) {
+        const bw = (far ? 18 : 28) + Math.floor(hash(k * 1.7 + (far ? 9 : 0)) * (far ? 26 : 44));
+        const bh = (far ? 40 : 30) + Math.floor(hash(k * 2.3 + (far ? 5 : 1)) * (far ? 90 : 110));
+        const col = base[k % 2];
+        p.rect(x, h - bh, bw, bh, col);
+        p.rect(x, h - bh, bw, 1, far ? '#2a2a58' : '#4a4070');
+        if (!far && hash(k * 4.1) > 0.6) { p.rect(x + Math.floor(bw / 2) - 1, h - bh - 10, 2, 10, col); p.px(x + Math.floor(bw / 2) - 1, h - bh - 11, '#ff5a5a'); }
+        if (far && hash(k * 5.3) > 0.7) { const sp = Math.floor(bw * 0.3); p.rect(x + sp, h - bh - 12, bw - sp * 2, 12, col); }
+        for (let wy = h - bh + 4; wy < h - 6; wy += far ? 5 : 7) for (let wx = x + 3; wx < x + bw - 3; wx += far ? 4 : 6) {
+          const r = hash(wx * 0.37 + wy * 1.91 + k);
+          if (r > (far ? 0.55 : 0.45)) p.rect(wx, wy, far ? 1 : 2, far ? 2 : 3, win[Math.floor(r * 10) % win.length]);
+        }
+        x += bw + (far ? 2 : 4); k++;
+      }
     }));
   }
   function caveSky(w, h) {
@@ -426,5 +470,5 @@
     }));
   }
 
-  window.TILES = { T, GROUND_OVER, THEMES, ground, crack, gate, lift, log, caveSky, mansionSky, questionBlock, usedBlock, brick, pipe, waterBack, waterFront, sky, clouds, hills, bush, flower, lily, pole, shadow };
+  window.TILES = { T, GROUND_OVER, THEMES, ground, crack, gate, lift, log, caveSky, mansionSky, citySky, skyline, questionBlock, usedBlock, brick, pipe, waterBack, waterFront, sky, clouds, hills, bush, flower, lily, pole, shadow };
 })();
