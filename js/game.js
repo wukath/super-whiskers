@@ -332,7 +332,8 @@
         if (group.length) { const mean = group.reduce((t, p) => t + p.cx, 0) / group.length; this.cam.x += (mean - 300 - this.cam.x) * 0.12; }
         this.cam.x = Math.max(0, Math.min(this.levelW - VW, this.cam.x));
         if (Math.abs(this.cam.x - hostCam) > 48) this.cam.x = hostCam;
-      } else this.cam.x = hostCam;
+        if (group.length) this.updateCameraY(group);
+      } else { this.cam.x = hostCam; if (s1.camy !== undefined) this.cam.y = s1.camy; }
     }
     // ----- online: host side -----
     snapshot() {
@@ -353,7 +354,7 @@
       });
       const w = this.world;
       const tl = w.tileLog.slice(w.tileSent); w.tileSent = w.tileLog.length;
-      const s = { t: 'S', f: this.frame, st: this.state, w: lv.name, cam: Math.round(cam.x * 10) / 10, lives: this.lives, coins: this.coins, score: this.scoreVal, time: this.time, shake: this.shakeT > 0 ? this.shakeMag : 0, pl, en, tl, bm: this.bumps, fx: this.fxQueue, sfx: this.sfxQueue, fy: this.flagY, ct: this.clearTimer, warp: this.warp ? { phase: this.warp.phase, t: this.warp.t } : null, song: this.song };
+      const s = { t: 'S', f: this.frame, st: this.state, w: lv.name, cam: Math.round(cam.x * 10) / 10, camy: Math.round(cam.y), lives: this.lives, coins: this.coins, score: this.scoreVal, time: this.time, shake: this.shakeT > 0 ? this.shakeMag : 0, pl, en, tl, bm: this.bumps, fx: this.fxQueue, sfx: this.sfxQueue, fy: this.flagY, ct: this.clearTimer, warp: this.warp ? { phase: this.warp.phase, t: this.warp.t } : null, song: this.song };
       this.fxQueue = []; this.sfxQueue = [];
       this.net.broadcast(s);
     }
@@ -415,10 +416,11 @@
         return p;
       });
       this.time = this.level.time; this.timeTick = 0; this.warned = false;
-      this.cam.x = 0; this.flagY = 0; this.clearTimer = 0; this.warp = null; this.fxQueue = []; this.sfxQueue = []; this.flagPlayer = null; this.bossStarted = false;
+      this.cam.x = 0; this.cam.y = 0; this.flagY = 0; this.clearTimer = 0; this.warp = null; this.fxQueue = []; this.sfxQueue = []; this.flagPlayer = null; this.bossStarted = false;
       AUDIO.MUSIC.setRate(1);
       const th = this.level.theme;
       this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : th === 'nyc' ? TILES.citySky(VW, VH) : th === 'dc' ? TILES.dcSky(VW, VH) : th === 'cabin' ? TILES.cabinSky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th), far: TILES.skyline(1280, 200, true), near: TILES.skyline(1280, 170, false) };
+      this.updateCameraY(this.players, true);
       if (this.mode === 'host' && this.state !== 'lobby' && this.state !== 'title') this.sendLevel();
     }
     setWorld(name) {
@@ -454,7 +456,7 @@
     startBoss() {
       const a = this.level.arena, b = this.boss;
       this.bossStarted = true;
-      for (let r = 1; r <= 8; r++) this.setTile(a.c, r, 'gate');
+      for (let r = a.r - 7; r <= a.r; r++) this.setTile(a.c, r, 'gate');
       if (b) { b.state = 'idle'; b.stateT = 0; }
       this.shake(10, 3); AUDIO.SFX.rock(); AUDIO.MUSIC.start('boss');
       for (const p of this.players) if (p.alive && p.x < (a.c + 1) * T) p.x = (a.c + 1) * T + 2;
@@ -570,7 +572,7 @@
       for (const p of this.players) {
         if (p.dying && p.deadTimer > 110 && this.alivePlayers().length > 0) {
           const a = this.nearestAlive(p);
-          if (this.lives > 0) { p.dying = false; p.bubbled = true; p.bubbleT = 0; p.x = a ? a.cx - 60 : this.cam.x + 100; p.y = 40; }
+          if (this.lives > 0) { p.dying = false; p.bubbled = true; p.bubbleT = 0; p.x = a ? a.cx - 60 : this.cam.x + 100; p.y = this.cam.y + 40; }
           else { p.dying = false; p.out = true; p.hidden = true; }
         }
       }
@@ -595,7 +597,7 @@
         }
       }
       const ar = this.level.arena;
-      if (ar && !this.bossStarted && this.alivePlayers().some(p => p.cx > (ar.c + 2) * T)) this.startBoss();
+      if (ar && !this.bossStarted && this.alivePlayers().some(p => p.cx > (ar.c + 2) * T && Math.abs(p.bottom - (ar.r + 1) * T) < 3 * T)) this.startBoss();
       this.updateCamera();
       if (++this.timeTick >= 24) {
         this.timeTick = 0; this.time--;
@@ -603,7 +605,7 @@
         if (this.time <= 0) { this.time = 0; for (const p of this.alivePlayers()) this.killPlayer(p, false); }
       }
       const f = this.level.flag;
-      if (f) for (const p of this.alivePlayers()) if (p.x + p.w > f.c * T + 14 && p.y < f.r * T) { this.startFlag(p); break; }
+      if (f) for (const p of this.alivePlayers()) if (p.x + p.w > f.c * T + 14 && p.x < f.c * T + 34 && p.y < f.r * T && p.bottom > (f.r - 8) * T) { this.startFlag(p); break; }
     }
     playerCollisions(p) {
       const lag = p.lagFrames || 0;
@@ -639,6 +641,16 @@
         this.cam.x += (mean - 300 - this.cam.x) * 0.12;
       }
       this.cam.x = Math.max(0, Math.min(this.levelW - VW, this.cam.x));
+      this.updateCameraY(group);
+    }
+    // Vertical follow for tall levels: keep the group in a band around the middle of the screen.
+    updateCameraY(group, snap) {
+      if (this.levelH <= VH + T) { this.cam.y = 0; return; }
+      const mean = group.reduce((s, p) => s + p.bottom, 0) / group.length;
+      const target = mean - VH * 0.6;
+      if (snap) this.cam.y = target;
+      else { if (target - this.cam.y > 40) this.cam.y += (target - 40 - this.cam.y) * 0.2; else if (this.cam.y - target > 60) this.cam.y += (target + 60 - this.cam.y) * 0.2; }
+      this.cam.y = Math.max(0, Math.min(this.levelH - VH, this.cam.y));
     }
     updatePlatforms() { for (const e of this.entities) if (e.isPlatform || e.isBouncer) e.update(this); }
     updateEntities() {
@@ -677,7 +689,7 @@
             if (to.dir === 'drop') { p.x = to.c * T + 6 + i * 10; p.y = to.r * T - p.h - i * 20; p.frozen = false; p.vy = 2; }
             else { p.x = to.c * T + T - p.w / 2; p.y = to.r * T + 4; p.frozen = true; }
           });
-          this.cam.x = Math.max(0, Math.min(this.levelW - VW, this.players[0].cx - 260));
+          this.cam.x = Math.max(0, Math.min(this.levelW - VW, this.players[0].cx - 260)); this.updateCameraY(this.players, true);
         }
       } else if (w.phase === 'exit') {
         if (to.dir === 'rise') {
@@ -694,11 +706,11 @@
       const f = this.level.flag;
       this.state = 'flag'; this.flagPhase = 0; this.flagPlayer = p; AUDIO.MUSIC.stop(); AUDIO.SFX.flag();
       p.x = f.c * T + 16 - p.w / 2 - 6; p.vx = 0; p.vy = 0; p.sliding = true; p.facing = 1; p.frozen = true; p.pound = null; p.dashTimer = 0;
-      const poleTop = T, poleBottom = f.r * T;
+      const poleTop = (f.r - 7) * T, poleBottom = f.r * T;
       const hgt = (poleBottom - p.bottom) / (poleBottom - poleTop);
       const bonus = hgt > 0.8 ? 5000 : hgt > 0.6 ? 2000 : hgt > 0.4 ? 800 : hgt > 0.2 ? 400 : 100;
       this.score(bonus, p.x + 24, p.y);
-      this.flagY = T + 8;
+      this.flagY = (f.r - 7) * T + 8;
       for (const q of this.players) if (q !== p) { q.frozen = true; if (!q.out && !q.hidden) this.add(new E.Poof(q.cx, q.y + q.h / 2, 1)); q.hidden = true; q.bubbled = false; q.dying = false; }
     }
     updateFlag() {
@@ -722,6 +734,7 @@
       const h = this.level.house;
       const target = Math.min(this.levelW - VW, (h ? h.c * T + 56 : this.levelW) - 400);
       this.cam.x += (target - this.cam.x) * 0.04;
+      if (this.flagPlayer) this.updateCameraY([this.flagPlayer]);
     }
 
     // ----- render -----
@@ -732,8 +745,9 @@
       ctx.drawImage(lv.theme === 'dc' ? TILES.dcSky(VW, VH) : lv.theme === 'cabin' ? TILES.cabinSky(VW, VH) : cave || city ? this.bg.cave : this.bg.sky, 0, 0);
       ctx.save();
       if (this.shakeT > 0) ctx.translate(Math.round((Math.random() - 0.5) * 2 * this.shakeMag), Math.round((Math.random() - 0.5) * 2 * this.shakeMag));
+      const gyBase = lv.H * T - 3 * T - cam.y;
       if (city) {
-        const far = this.bg.far, near = this.bg.near, gy = LEVELS.GROUND_ROW * T;
+        const far = this.bg.far, near = this.bg.near, gy = gyBase;
         const fx0 = -((cam.x * 0.15) % far.width), nx0 = -((cam.x * 0.4) % near.width);
         ctx.drawImage(far, Math.round(fx0), gy - far.height); ctx.drawImage(far, Math.round(fx0 + far.width), gy - far.height);
         ctx.drawImage(near, Math.round(nx0), gy - near.height); ctx.drawImage(near, Math.round(nx0 + near.width), gy - near.height);
@@ -741,38 +755,39 @@
         const cw = this.bg.clouds.width, cx0 = -((cam.x * 0.25) % cw);
         ctx.drawImage(this.bg.clouds, Math.round(cx0), 0); ctx.drawImage(this.bg.clouds, Math.round(cx0 + cw), 0);
         const hills = lv.theme === 'plex' ? TILES.campus(1280, 140) : this.bg.hills;
-        const hw = hills.width, hx0 = -((cam.x * 0.5) % hw), hy = LEVELS.GROUND_ROW * T - hills.height;
+        const hw = hills.width, hx0 = -((cam.x * 0.5) % hw), hy = Math.round(gyBase - hills.height);
         ctx.drawImage(hills, Math.round(hx0), hy); ctx.drawImage(hills, Math.round(hx0 + hw), hy);
       }
       const c0 = Math.max(0, Math.floor(cam.x / T) - 1), c1 = Math.min(lv.W - 1, Math.floor((cam.x + VW) / T) + 1);
       for (const d of lv.decor) {
         if (d.c < c0 - 3 || d.c > c1) continue;
-        if (d.kind === 'bush') { const b = TILES.bush(Math.round(d.s * 10) / 10); ctx.drawImage(b, Math.round(d.c * T - cam.x), d.r * T - b.height + 1); }
-        else if (d.kind === 'tower') { const s = SPRITES.extras.WATER_TOWER.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), d.r * T - s.height); }
-        else if (d.kind === 'cart') { const s = SPRITES.extras.HOTDOG_CART.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
-        else if (d.kind === 'sign') { const s = TILES.plexSign(); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
-        else if (d.kind === 'totem') { const s = TILES.gTotem(); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
-        else if (d.kind === 'gbike') { const s = SPRITES.extras.GBIKE.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height + 3); }
-        else if (d.kind === 'stan') { const s = SPRITES.extras.STAN.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height * 2 + 6, s.width * 2, s.height * 2); }
-        else if (d.kind === 'pine') { const s = SPRITES.extras.PINE.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height + 2); }
-        else if (d.kind === 'snowman') { const s = SPRITES.extras.SNOWMAN.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height + 2); }
-        else if (d.kind === 'fire') { const s = SPRITES.extras.FIRE.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
-        else if (d.kind === 'lights') { const s = TILES.lights(d.len * T); ctx.drawImage(s, Math.round(d.c * T - cam.x), d.r * T); }
-        else if (d.kind === 'sign404' || d.kind === 'offline') { const s = TILES.plexBoard(d.kind); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
+        if (d.kind === 'bush') { const b = TILES.bush(Math.round(d.s * 10) / 10); ctx.drawImage(b, Math.round(d.c * T - cam.x), d.r * T - b.height + 1 - cam.y); }
+        else if (d.kind === 'tower') { const s = SPRITES.extras.WATER_TOWER.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), d.r * T - s.height - cam.y); }
+        else if (d.kind === 'cart') { const s = SPRITES.extras.HOTDOG_CART.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height - cam.y); }
+        else if (d.kind === 'sign') { const s = TILES.plexSign(); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height - cam.y); }
+        else if (d.kind === 'totem') { const s = TILES.gTotem(); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height - cam.y); }
+        else if (d.kind === 'gbike') { const s = SPRITES.extras.GBIKE.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height + 3 - cam.y); }
+        else if (d.kind === 'stan') { const s = SPRITES.extras.STAN.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height * 2 + 6, s.width * 2, s.height * 2 - cam.y); }
+        else if (d.kind === 'pine') { const s = SPRITES.extras.PINE.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height + 2 - cam.y); }
+        else if (d.kind === 'snowman') { const s = SPRITES.extras.SNOWMAN.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height + 2 - cam.y); }
+        else if (d.kind === 'fire') { const s = SPRITES.extras.FIRE.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height - cam.y); }
+        else if (d.kind === 'lights') { const s = TILES.lights(d.len * T); ctx.drawImage(s, Math.round(d.c * T - cam.x), d.r * T - cam.y); }
+        else if (d.kind === 'sign404' || d.kind === 'offline') { const s = TILES.plexBoard(d.kind); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height - cam.y); }
       }
-      if (lv.house) { const hs = SPRITES.extras.HOUSE.r; ctx.drawImage(hs, Math.round(lv.house.c * T - cam.x), (lv.house.r + 1) * T - hs.height); }
+      if (lv.house) { const hs = SPRITES.extras.HOUSE.r; ctx.drawImage(hs, Math.round(lv.house.c * T - cam.x), Math.round((lv.house.r + 1) * T - hs.height - cam.y)); }
       if (lv.flag) {
-        const f = lv.flag, poleH = f.r * T - T + 2;
-        ctx.drawImage(TILES.pole(poleH), Math.round(f.c * T + 10 - cam.x), T - 2);
-        const fl = SPRITES.extras.FLAG.r, fy = this.state === 'flag' || this.state === 'clear' ? this.flagY : T + 8;
-        ctx.drawImage(fl, Math.round(f.c * T + 10 - fl.width + 4 - cam.x), Math.round(fy));
+        const f = lv.flag, poleH = 7 * T + 2, poleTop = (f.r - 7) * T;
+        ctx.drawImage(TILES.pole(poleH), Math.round(f.c * T + 10 - cam.x), Math.round(poleTop - 2 - cam.y));
+        const fl = SPRITES.extras.FLAG.r, fy = this.state === 'flag' || this.state === 'clear' ? this.flagY : poleTop + 8;
+        ctx.drawImage(fl, Math.round(f.c * T + 10 - fl.width + 4 - cam.x), Math.round(fy - cam.y));
       }
       const warping = this.state === 'warp' && !!this.warp && (this.warp.phase === 'enter' || (this.warp.def ? this.warp.def.to.dir === 'rise' : lv.name === 'main'));
       if (warping) this.drawPlayers();
       const wf = Math.floor(this.frame / 10) % 4;
-      for (let r = 0; r < lv.H; r++) for (let c = c0; c <= c1; c++) {
+      const r0 = Math.max(0, Math.floor(cam.y / T) - 1), r1 = Math.min(lv.H - 1, Math.floor((cam.y + VH) / T) + 1);
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
         const t = lv.tiles[r][c]; if (!t) continue;
-        const x = Math.round(c * T - cam.x), y = r * T;
+        const x = Math.round(c * T - cam.x), y = Math.round(r * T - cam.y);
         if (t.type === 'ground') ctx.drawImage(TILES.ground(t.variant, t.top, t.bottom, t.left, t.right, t.paint || (city && r >= LEVELS.GROUND_ROW ? 'nycroad' : lv.theme)), x, y - GROUND_OVER);
         else if (t.type === 'water') ctx.drawImage(TILES.waterBack(t.depth, wf), x, y);
         else if (t.type === 'hidden') continue;
@@ -785,20 +800,20 @@
           ctx.drawImage(img, x, y + oy);
         }
       }
-      for (const p of lv.pipes) if (p.c + 2 >= c0 && p.c <= c1) ctx.drawImage(TILES.pipe(p.h * T), Math.round(p.c * T - cam.x), p.r * T);
-      for (const d of lv.decor) if (d.kind === 'cabin' && d.c >= c0 - 6 && d.c <= c1) { const s = SPRITES.extras.CABIN.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height * 2, s.width * 2, s.height * 2); }
-      for (const d of lv.decor) if (d.kind === 'flower' && d.c >= c0 && d.c <= c1) ctx.drawImage(TILES.flower(d.kind2), Math.round(d.c * T + d.dx - cam.x), d.r * T - 10);
-      for (const d of lv.decor) if (d.kind === 'lily' && d.c >= c0 && d.c <= c1) ctx.drawImage(TILES.lily(), Math.round(d.c * T + 4 - cam.x), d.r * T - 4 + Math.round(Math.sin(this.frame * 0.05 + d.c) * 1));
+      for (const p of lv.pipes) if (p.c + 2 >= c0 && p.c <= c1) ctx.drawImage(TILES.pipe(p.h * T), Math.round(p.c * T - cam.x), Math.round(p.r * T - cam.y));
+      for (const d of lv.decor) if (d.kind === 'cabin' && d.c >= c0 - 6 && d.c <= c1) { const s = SPRITES.extras.CABIN.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), Math.round((d.r + 1) * T - s.height * 2 - cam.y), s.width * 2, s.height * 2); }
+      for (const d of lv.decor) if (d.kind === 'flower' && d.c >= c0 && d.c <= c1) ctx.drawImage(TILES.flower(d.kind2), Math.round(d.c * T + d.dx - cam.x), Math.round(d.r * T - 10 - cam.y));
+      for (const d of lv.decor) if (d.kind === 'lily' && d.c >= c0 && d.c <= c1) ctx.drawImage(TILES.lily(), Math.round(d.c * T + 4 - cam.x), Math.round(d.r * T - 4 - cam.y + Math.sin(this.frame * 0.05 + d.c)));
       const order = e => (e.isPlatform || e.isBouncer || e.isItem || e.isCoin) ? 0 : e.isEnemy ? 1 : 2;
-      const ents = this.entities.filter(e => e.active && e.x + e.w > cam.x - 64 && e.x < cam.x + VW + 64).sort((a, b) => order(a) - order(b));
+      const ents = this.entities.filter(e => e.active && e.x + e.w > cam.x - 64 && e.x < cam.x + VW + 64 && e.y + e.h > cam.y - 300 && e.y < cam.y + VH + 300).sort((a, b) => order(a) - order(b));
       let drewPlayer = warping;
       for (const e of ents) {
         if (!drewPlayer && order(e) === 2) { this.drawPlayers(); drewPlayer = true; }
         e.draw(ctx, cam, this);
       }
       if (!drewPlayer) this.drawPlayers();
-      for (let r = 0; r < lv.H; r++) for (let c = c0; c <= c1; c++) {
-        const t = lv.tiles[r][c]; if (t && t.type === 'water') ctx.drawImage(TILES.waterFront(t.depth, wf), Math.round(c * T - cam.x), r * T);
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+        const t = lv.tiles[r][c]; if (t && t.type === 'water') ctx.drawImage(TILES.waterFront(t.depth, wf), Math.round(c * T - cam.x), Math.round(r * T - cam.y));
       }
       ctx.restore();
       if (lv.theme === 'snow') this.drawSnow();

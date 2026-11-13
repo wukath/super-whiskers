@@ -38,11 +38,15 @@ pipes and the flag take everyone along.
 ## Levels
 
 1. **Meadow** — grassy intro with a secret bonus cave through the warp pipe.
-2. **Crystal Caves** — underground: wall-jump shaft, falling platforms, a wall you must pounce through.
-3. **Sunset Shore** — beach at dusk, mostly water crossings on logs and islands.
-4. **Evil Mansion** — a haunted house with trapdoors, chandelier lifts and a flooded cellar,
-   ending in a locked arena where **Duke** the bulldog waits. Stomp his head three times
-   (yarn balls and pounces chip him too) while he charges, slams and lobs bones.
+2. **Crystal Caves** — a vertical descent down a deep cavern: drop off ledges, pound through a
+   cracked floor, fall between stalactite pillars, swim a flooded hall, and ride lifts down to the
+   flag at the bottom.
+3. **Sunset Shore** — a beach where the ground never stays level: rolling dunes, tide pools, a sea
+   cliff, a long pier on stilts with missing planks, a shipwreck, and a lighthouse climb.
+4. **Evil Mansion** — a haunted tower you climb floor by floor: grand staircase, chandelier lift,
+   trapdoor platforms, bookcase steps and a wall-jump chimney up to the attic, where **Duke** the
+   bulldog waits. Stomp his head three times (yarn balls and pounces chip him too) while he
+   charges, slams and lobs bones.
 5. **Midtown Rush** — New York at night. Dodge or ride yellow cabs, climb fire escapes to
    the rooftops, ride an elevated train (duck under the signals), surf steam vents over
    open manholes. Rats, swooping pigeons and lid-throwing raccoons.

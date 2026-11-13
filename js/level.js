@@ -15,20 +15,25 @@
 (function () {
   const ROWS = 12, GROUND_ROW = 9;
 
-  function grid(W) {
+  // A level grid. Default 12 rows with the ground at row 9; taller grids
+  // scroll vertically and put the ground at H - 3.
+  function grid(W, H = ROWS) {
     const g = [];
     let L;
-    for (let r = 0; r < ROWS; r++) g.push(new Array(W).fill('.'));
-    const put = (c, r, ch) => { if (c >= 0 && c < W && r >= 0 && r < ROWS) g[r][c] = ch; };
+    const GR = H - 3;
+    for (let r = 0; r < H; r++) g.push(new Array(W).fill('.'));
+    const put = (c, r, ch) => { if (c >= 0 && c < W && r >= 0 && r < H) g[r][c] = ch; };
     L = {
       g, put,
       row: (c, r, s) => { for (let i = 0; i < s.length; i++) if (s[i] !== ' ') put(c + i, r, s[i]); },
       fill: (c0, c1, r0, r1, ch) => { for (let c = c0; c <= c1; c++) for (let r = r0; r <= r1; r++) put(c, r, ch); },
-      pit: (c0, c1) => { for (let c = c0; c <= c1; c++) for (let r = GROUND_ROW; r < ROWS; r++) put(c, r, '.'); },
-      water: (c0, c1) => { for (let c = c0; c <= c1; c++) { put(c, 9, '~'); put(c, 10, '~'); } },
-      pipe: (c, h, warp) => put(c, GROUND_ROW - h, warp ? 'W' : 'T'),
-      stairsUp: (c, n) => { for (let i = 0; i < n; i++) for (let k = 0; k <= i; k++) put(c + i, GROUND_ROW - 1 - k, '#'); },
-      stairsDown: (c, n) => { for (let i = 0; i < n; i++) for (let k = 0; k < n - i; k++) put(c + i, GROUND_ROW - 1 - k, '#'); },
+      H, GR,
+      pit: (c0, c1) => { for (let c = c0; c <= c1; c++) for (let r = GR; r < H; r++) put(c, r, '.'); },
+      water: (c0, c1, r = GR) => { for (let c = c0; c <= c1; c++) { put(c, r, '~'); put(c, r + 1, '~'); } },
+      pipe: (c, h, warp, base = GR) => put(c, base - h, warp ? 'W' : 'T'),
+      stairsUp: (c, n, base = GR) => { for (let i = 0; i < n; i++) for (let k = 0; k <= i; k++) put(c + i, base - 1 - k, '#'); },
+      stairsDown: (c, n, base = GR) => { for (let i = 0; i < n; i++) for (let k = 0; k < n - i; k++) put(c + i, base - 1 - k, '#'); },
+      ground: (c0, c1, r = GR) => { for (let c = c0; c <= c1; c++) for (let y = r; y < H; y++) put(c, y, '#'); },
       platform: (c, r, n) => { for (let i = 0; i < n; i++) put(c + i, r, '#'); },
       coins: (c, r, n, step = 1) => { for (let i = 0; i < n; i++) put(c + i * step, r, 'C'); },
       rows: () => g.map(r => r.join('')),
@@ -97,121 +102,122 @@
     return { rows: L.rows(), movers: [], warps: [], theme: 'cave', name: 'bonus', time: 0 };
   }
 
-  // Level 2: an underground cave. Ceiling everywhere, a wall-jump shaft,
-  // falling platforms over pits and a wall that must be pounced through.
+  // Level 2: Crystal Caves, a vertical descent. Stone floors stacked down a
+  // cavern, each with its own way down: a drop off the end, a hole guarded by
+  // hedgehogs, a cracked floor to pound through, a flooded hall to swim, and
+  // lifts over the last pit. The flag waits at the bottom.
   function buildLevel2() {
-    const W = 190, L = grid(W);
-    const { put, row, fill, pit, water, stairsUp, stairsDown, platform, coins } = L;
+    const W = 40, H = 60, L = grid(W, H);
+    const { put, row, fill, platform, coins } = L;
     const movers = [];
-    fill(0, W - 1, GROUND_ROW, ROWS - 1, '#');
-    fill(0, W - 1, 0, 0, '#');
-    fill(0, 0, 0, ROWS - 1, '#'); fill(W - 1, W - 1, 0, ROWS - 1, '#');
-    put(3, 8, '@');
-    put(9, 8, '^'); coins(7, 2, 5);
-    put(12, 5, '?');
-    pit(14, 16); movers.push({ type: 'hlift', c: 14, r: 7, range: 1 });
-    // stalagmite pillars
-    fill(20, 20, 7, 8, '#'); fill(23, 23, 6, 8, '#'); fill(26, 26, 7, 8, '#'); put(22, 8, 'h'); put(25, 8, 'm'); put(23, 2, 'M');
-    // wall-jump shaft: enter at floor level, climb to the top path
-    fill(30, 42, 3, 11, '#'); fill(31, 32, 3, 10, '.'); fill(30, 30, 7, 8, '.');
-    coins(34, 2, 6); put(40, 2, 'C');
-    put(45, 8, 'm');
-    // underground lake
-    water(48, 58); put(50, 10, 'f'); put(54, 9, 'f'); put(57, 10, 'f');
-    movers.push({ type: 'log', c: 49, r: 9, range: 5 }); coins(50, 6, 4, 2); put(54, 4, '?');
-    put(61, 8, 'h');
-    // pounce wall: too tall to jump
-    fill(64, 64, 5, 8, 'X'); coins(66, 7, 2);
-    // falling platforms over a long pit
-    pit(68, 79);
-    movers.push({ type: 'fall', c: 68, r: 7 }, { type: 'fall', c: 72, r: 6 }, { type: 'fall', c: 76, r: 7 });
-    coins(70, 4, 1); coins(74, 3, 1); coins(78, 4, 1);
-    put(83, 8, 'm'); put(85, 8, 'm'); put(87, 8, 'h'); row(84, 5, 'B?SB');
-    stairsUp(90, 3); pit(93, 94); stairsDown(95, 3);
-    // vertical lifts across a pit
-    pit(100, 112);
-    movers.push({ type: 'vlift', c: 101, r: 8, range: 3 }, { type: 'vlift', c: 105, r: 8, range: 3, phase: Math.PI }, { type: 'vlift', c: 109, r: 8, range: 3 });
-    coins(103, 4, 1); coins(107, 4, 1); coins(111, 4, 1);
-    // hidden tunnel
-    put(118, 9, 'X'); for (let c = 118; c <= 124; c++) put(c, 10, '.'); coins(119, 10, 5); put(124, 9, 'X'); put(121, 4, '!');
-    put(128, 8, '^'); coins(126, 2, 6); put(131, 8, 'h'); put(134, 8, 'm');
-    row(138, 5, 'BBMBB'); put(140, 8, 'm'); put(143, 8, 'h');
-    stairsUp(146, 6); fill(152, 152, 7, 8, '#');
-    put(156, 8, 'F');
-    put(164, 8, 'H');
-    return { rows: L.rows(), movers, warps: [], theme: 'cave', name: 'main', time: 350, title: 'CRYSTAL CAVES' };
+    const floor = (r, c0, c1) => fill(c0, c1, r, r, '#');
+    fill(0, W - 1, 0, 0, '#'); fill(0, 0, 0, H - 1, '#'); fill(W - 1, W - 1, 0, H - 1, '#');
+    fill(0, W - 1, H - 3, H - 1, '#');
+    put(3, 7, '@');
+    // 1 (r 8): entrance ledge ending over a drop; stepping stones down the right wall
+    floor(8, 1, 28); coins(10, 6, 5, 2); put(18, 7, 'm'); put(24, 7, 'm'); put(14, 4, '?');
+    platform(31, 11, 3); coins(31, 10, 3); platform(35, 14, 3);
+    // 2 (r 17): wide hall; the hole is on the left, past two hedgehogs; a crystal arch of coins
+    floor(17, 7, 38); put(12, 16, 'h'); put(30, 16, 'h'); for (let k = 0; k < 7; k++) put(16 + k, 14 - Math.round(Math.sin(k / 6 * Math.PI) * 2.5), 'C');
+    row(22, 13, 'B?B'); put(34, 12, '!');
+    movers.push({ type: 'fall', c: 3, r: 20 }, { type: 'fall', c: 1, r: 23 });
+    // 3 (r 26): the cracked floor: pound through the X tiles on the right to continue
+    floor(26, 1, 38); for (let c = 30; c <= 35; c++) put(c, 26, 'X');
+    put(8, 25, 'm'); put(14, 25, 'm'); put(20, 25, 'h'); coins(4, 23, 3); coins(24, 23, 3, 2); put(31, 22, 'M');
+    fill(16, 16, 23, 25, '#'); coins(16, 21, 1);
+    // 4 (r 34): stalactite pillars; the hole between them drops into the flooded hall
+    floor(34, 1, 38); fill(18, 19, 34, 34, '.'); fill(17, 17, 35, 41, '#'); fill(20, 20, 35, 41, '#'); for (let r = 36; r <= 41; r += 2) put(18 + (r / 2 % 2), r, 'C');
+    put(28, 33, 'm'); put(34, 33, 'm'); put(6, 33, 'h'); put(10, 30, 'S');
+    // 5 (r 43-46): the flooded hall: swim right, climb the bank, drop through the gap
+    fill(1, 5, 43, 46, '#'); fill(33, 34, 43, 46, '#'); fill(38, 38, 43, 51, '#'); fill(1, 34, 47, 47, '#');
+    for (let c = 6; c <= 32; c++) for (let r = 43; r <= 46; r++) put(c, r, '~');
+    put(10, 46, 'f'); put(18, 45, 'f'); put(26, 46, 'f'); coins(9, 41, 3, 3); coins(23, 41, 3, 3);
+    movers.push({ type: 'log', c: 12, r: 43, range: 8 });
+    // 6 (r 52): landing ledge, then lifts down to the crystal garden and the flag
+    floor(52, 24, 37); row(27, 49, '?B?'); put(30, 51, 'm');
+    movers.push({ type: 'vlift', c: 18, r: 56, range: 4 }, { type: 'vlift', c: 12, r: 56, range: 4, phase: Math.PI });
+    coins(19, 53, 2); coins(13, 53, 2); put(26, 56, 'h'); put(14, 56, 'h');
+    put(4, 56, 'F');
+    put(8, 56, 'H');
+    return { rows: L.rows(), movers, warps: [], theme: 'cave', name: 'main', time: 400, title: 'CRYSTAL CAVES' };
   }
 
-  // Level 3: a sunset beach, mostly water crossings on logs and islands.
+  // Level 3: Sunset Shore. The ground itself rises and falls: dunes, a sea
+  // cliff, a long pier on stilts, tide pools, a shipwreck, and a lighthouse
+  // climb at the end. No two stretches sit at the same height.
   function buildLevel3() {
     const W = 230, L = grid(W);
-    const { put, row, pit, water, stairsUp, stairsDown, platform, coins } = L;
+    const { put, row, fill, pit, water, platform, coins, ground } = L;
     const movers = [];
-    for (let c = 0; c < W; c++) for (let r = GROUND_ROW; r < ROWS; r++) put(c, r, '#');
+    ground(0, W - 1);
     put(3, 8, '@');
-    put(8, 5, '?'); put(12, 8, 'm');
-    water(15, 22); movers.push({ type: 'log', c: 16, r: 9, range: 4 }); put(17, 10, 'f'); put(21, 9, 'f'); coins(16, 5, 4, 2);
-    put(25, 8, '^'); coins(24, 2, 5); put(28, 4, '!');
-    row(30, 5, 'B?MB'); put(33, 8, 'h');
-    water(36, 47); movers.push({ type: 'log', c: 37, r: 9, range: 3 }, { type: 'fall', c: 42, r: 6 }, { type: 'log', c: 44, r: 9, range: 2, phase: Math.PI });
-    put(38, 10, 'f'); put(41, 9, 'f'); put(46, 10, 'f'); coins(39, 6, 4, 2);
-    platform(50, 6, 3); platform(55, 4, 3); coins(55, 3, 3); put(53, 8, 'm');
-    pit(58, 60); movers.push({ type: 'hlift', c: 58, r: 7, range: 1 });
-    put(63, 8, 'h'); put(66, 8, 'h'); row(64, 5, '?BB?');
-    water(70, 78); put(72, 10, 'f'); put(76, 9, 'f'); movers.push({ type: 'vlift', c: 73, r: 8, range: 4 }); coins(71, 4, 3, 3);
-    stairsUp(81, 4); pit(85, 87); stairsDown(88, 4);
-    put(93, 8, 'm'); put(95, 8, 'm'); put(97, 8, 'm'); put(96, 5, 'S');
-    water(100, 112); movers.push({ type: 'log', c: 101, r: 9, range: 3 }, { type: 'log', c: 107, r: 9, range: 3, phase: Math.PI });
-    put(103, 10, 'f'); put(106, 9, 'f'); put(110, 10, 'f'); coins(102, 6, 6, 2);
-    put(116, 7, 'X'); put(116, 8, 'X'); coins(116, 4, 2);
-    put(119, 8, '^'); platform(122, 3, 3); coins(122, 2, 3); put(127, 2, '!');
-    water(130, 139); movers.push({ type: 'fall', c: 131, r: 6 }, { type: 'fall', c: 134, r: 5 }, { type: 'fall', c: 137, r: 6 }); put(133, 10, 'f'); put(137, 9, 'f');
-    put(142, 8, 'h'); put(146, 8, 'h'); row(144, 5, 'BSB');
-    pit(150, 152); pit(155, 157); movers.push({ type: 'hlift', c: 150, r: 7, range: 1 }, { type: 'hlift', c: 155, r: 6, range: 1, phase: Math.PI }); put(153, 8, 'm');
-    water(160, 171); movers.push({ type: 'log', c: 161, r: 9, range: 3 }, { type: 'log', c: 166, r: 9, range: 3, phase: Math.PI });
-    put(162, 10, 'f'); put(165, 9, 'f'); put(169, 10, 'f'); platform(165, 5, 2); coins(164, 3, 4);
-    put(175, 8, '^'); coins(174, 2, 6);
-    row(180, 5, '?M?'); put(183, 8, 'm'); put(186, 8, 'h');
-    stairsUp(190, 8); put(198, 8, '#'); put(198, 7, '#');
-    put(204, 8, 'F');
-    put(212, 8, 'H');
+    // dunes: rolling ground that steps up and down
+    ground(8, 13, 8); ground(14, 19, 7); ground(20, 23, 8); put(16, 6, 'm'); coins(14, 5, 6); put(11, 5, '?');
+    ground(26, 29, 7); ground(30, 34, 6); ground(35, 37, 7); put(32, 5, 'h'); coins(30, 3, 5); put(22, 4, 'S');
+    // tide pools: shallow water between sandbars with fish
+    water(40, 43); ground(44, 46); water(47, 52); ground(53, 55); water(56, 58);
+    put(41, 10, 'f'); put(49, 9, 'f'); put(57, 10, 'f'); coins(47, 6, 6); put(45, 8, 'm'); put(54, 6, '?');
+    // the sea cliff: climb the rock face, run along the top, then drop to the pier
+    ground(62, 64, 7); ground(65, 67, 5); ground(68, 84, 4); coins(69, 2, 8, 2); put(74, 3, 'h'); put(80, 3, 'h');
+    put(76, 1, 'M');
+    // the pier: a boardwalk on stilts over deep water, with gaps where planks are missing
+    water(85, 120); for (let c = 85; c <= 116; c++) { if (c % 11 === 7 || c % 11 === 8) continue; put(c, 6, '#'); if (c % 5 === 0) { put(c, 7, '#'); put(c, 8, '#'); } }
+    put(88, 10, 'f'); put(96, 9, 'f'); put(104, 10, 'f'); put(112, 9, 'f'); coins(90, 4, 4); coins(101, 4, 4); coins(112, 4, 4); put(99, 5, 'm'); put(108, 5, 'm');
+    movers.push({ type: 'log', c: 92, r: 9, range: 3 }, { type: 'log', c: 103, r: 9, range: 3, phase: Math.PI }, { type: 'log', c: 114, r: 9, range: 2 });
+    // the shipwreck: a hull of bricks sticking out of the sand, a cracked porthole, a hidden 1-up in the crow's nest
+    ground(121, 134, 8); fill(124, 131, 6, 7, 'B'); fill(127, 128, 6, 7, '.'); put(127, 7, 'X'); put(128, 7, 'X'); fill(122, 122, 5, 7, 'B'); put(126, 4, 'B'); put(129, 4, 'B'); put(122, 1, '!'); coins(123, 3, 7, 2); put(133, 7, 'h');
+    fill(132, 133, 3, 3, '#'); coins(132, 2, 2);
+    // the beach run: sand stepping down to the water, hedgehogs rolling
+    ground(135, 140, 7); ground(141, 150); put(137, 6, 'h'); put(144, 8, 'h'); put(147, 8, 'm');
+    water(151, 158); movers.push({ type: 'hlift', c: 151, r: 7, range: 3 }); coins(152, 5, 6); put(154, 10, 'f');
+    ground(159, 166, 8); put(162, 5, '?'); put(163, 7, 'm');
+    pit(167, 169); ground(170, 176, 6); coins(171, 4, 5); put(173, 5, 'h');
+    pit(177, 179); movers.push({ type: 'fall', c: 177, r: 5 });
+    // the lighthouse: a spiral of ledges up the tower, then the flag on the rocks
+    ground(180, 186, 8); fill(190, 195, 2, 8, '#');
+    platform(187, 6, 2); platform(185, 4, 2); platform(188, 2, 2); platform(197, 4, 2); coins(187, 5, 2); coins(185, 3, 2); coins(188, 1, 2); coins(197, 3, 2);
+    coins(191, 1, 4);
+    ground(199, 206, 7); put(203, 6, 'h');
+    put(212, 8, 'F');
+    put(220, 8, 'H');
     return { rows: L.rows(), movers, warps: [], theme: 'sand', name: 'main', time: 400, title: 'SUNSET SHORE' };
   }
 
-  // Level 4: the evil mansion, ending in a boss arena.
+  // Level 4: the evil mansion, a tower you climb floor by floor: a grand
+  // staircase, a chandelier lift, trapdoor platforms, bookcase steps and a
+  // wall-jump chimney. Duke waits in the attic.
   function buildLevel4() {
-    const W = 186, L = grid(W);
-    const { put, row, fill, pit, water, stairsUp, stairsDown, platform, coins } = L;
+    const W = 42, H = 56, L = grid(W, H);
+    const { put, row, fill, platform, coins } = L;
     const movers = [];
-    fill(0, W - 1, GROUND_ROW, ROWS - 1, '#');
-    fill(0, W - 1, 0, 0, '#');
-    fill(0, 0, 0, ROWS - 1, '#'); fill(W - 1, W - 1, 0, ROWS - 1, '#');
-    put(3, 8, '@');
-    // entrance hall: bookcase steps
-    platform(8, 7, 2); platform(11, 5, 2); platform(14, 3, 2); coins(8, 6, 2); coins(11, 4, 2); coins(14, 2, 2); put(10, 8, 'm');
-    pit(17, 20); movers.push({ type: 'fall', c: 17, r: 7 }, { type: 'fall', c: 19, r: 6 });
-    row(23, 5, 'B?BMB'); put(24, 8, 'h'); put(27, 8, 'h');
-    // chandeliers over the great hall
-    pit(31, 40); movers.push({ type: 'vlift', c: 31, r: 7, range: 3 }, { type: 'vlift', c: 35, r: 7, range: 3, phase: Math.PI }, { type: 'vlift', c: 39, r: 7, range: 3 });
-    coins(33, 3, 1); coins(37, 2, 1);
-    fill(44, 44, 5, 8, 'X'); coins(46, 7, 2); put(48, 8, 'm');
-    pit(52, 61); movers.push({ type: 'hlift', c: 52, r: 7, range: 2 }, { type: 'hlift', c: 58, r: 6, range: 2, phase: Math.PI }); coins(55, 4, 3);
-    // library
-    stairsUp(64, 4); put(68, 2, '?'); put(69, 2, 'S'); fill(68, 69, 5, 8, '#'); stairsDown(70, 4); put(66, 8, 'h');
-    put(77, 8, 'm'); put(79, 8, 'm'); put(81, 8, 'm'); row(78, 5, 'BBBB'); put(83, 8, 'h');
-    // flooded cellar
-    water(87, 95); movers.push({ type: 'log', c: 88, r: 9, range: 4 }); put(89, 10, 'f'); put(93, 9, 'f'); coins(88, 6, 4, 2);
-    pit(98, 107); movers.push({ type: 'fall', c: 98, r: 7 }, { type: 'fall', c: 101, r: 6 }, { type: 'fall', c: 104, r: 7 }); coins(100, 4, 1); coins(106, 4, 1);
-    put(111, 8, '^'); coins(109, 2, 6); put(114, 3, '!');
-    row(121, 5, 'BB?BMB'); put(122, 8, 'h'); put(126, 8, 'h'); put(129, 8, 'm');
-    put(133, 7, 'X'); put(133, 8, 'X'); coins(133, 4, 2);
-    // boss arena
-    put(140, 8, 'A');
-    fill(165, 165, 1, 8, 'G');
-    put(156, 8, 'Z');
-    put(173, 8, 'F');
-    put(178, 8, 'H');
-    return { rows: L.rows(), movers, warps: [], theme: 'mansion', name: 'main', time: 400, title: 'EVIL MANSION' };
+    const floor = (r, c0, c1) => fill(c0, c1, r, r, '#');
+    fill(0, W - 1, 0, 0, '#'); fill(0, 0, 0, H - 1, '#'); fill(W - 1, W - 1, 0, H - 1, '#');
+    fill(0, W - 1, H - 3, H - 1, '#');
+    put(3, 52, '@');
+    // ground floor (r 53): the entrance hall and a grand staircase up on the right
+    put(9, 52, 'm'); put(15, 52, 'h'); coins(6, 50, 4, 2); row(18, 49, 'B?B');
+    for (let i = 0; i < 7; i++) fill(32 - i, 32 - i, 52 - i, 52, '#');
+    coins(27, 44, 3, 2);
+    // 2nd floor (r 45): walk left to the chandelier shaft
+    floor(45, 1, 24); put(12, 44, 'h'); put(18, 44, 'm'); coins(8, 42, 3, 3); put(21, 41, '?');
+    movers.push({ type: 'vlift', c: 3, r: 44, range: 7 });
+    // 3rd floor (r 36): the library; trapdoor platforms climb the right wall
+    floor(36, 8, 40); put(14, 35, 'm'); put(20, 35, 'm'); put(26, 35, 'h'); row(10, 32, 'B?MB'); coins(18, 33, 4); fill(30, 30, 33, 35, 'X'); coins(32, 33, 2);
+    movers.push({ type: 'fall', c: 33, r: 33 }, { type: 'fall', c: 36, r: 30 }, { type: 'fall', c: 32, r: 28 });
+    // 4th floor (r 27): portraits and hedgehogs; bookcase steps up the right side
+    floor(27, 1, 30); put(8, 26, 'h'); put(16, 26, 'h'); put(23, 26, 'm'); coins(4, 24, 5, 2); put(14, 23, 'S');
+    platform(33, 24, 2); platform(36, 21, 2); platform(32, 20, 2); coins(33, 23, 2); coins(36, 20, 2);
+    // 5th floor (r 18): walk left to the chimney
+    floor(18, 1, 30); put(10, 17, 'm'); put(18, 17, 'm'); put(26, 17, 'h'); row(20, 14, '?BB?'); put(29, 13, '!'); coins(6, 15, 3);
+    fill(2, 3, 18, 18, '.'); fill(1, 1, 10, 17, '#'); fill(4, 4, 10, 17, '#'); for (let r = 11; r <= 17; r += 2) put(2 + (r / 2 % 2 | 0), r, 'C');
+    // attic (r 9): the boss arena, the gate, and the exit
+    floor(9, 4, 40);
+    put(7, 8, 'A');
+    put(20, 8, 'Z');
+    fill(31, 31, 1, 8, 'G');
+    put(35, 8, 'F');
+    put(38, 8, 'H');
+    return { rows: L.rows(), movers, warps: [], theme: 'mansion', name: 'main', time: 450, title: 'EVIL MANSION' };
   }
 
   // Level 5: Midtown at night. Streets with cabs, fire-escape shafts, rooftops,
@@ -268,11 +274,11 @@
     put(3, 8, '@');
     // campus entrance: the sign, a parked gBike, a welcome card and the first droid
     movers.push({ type: 'decor', kind: 'sign', c: 6, r: 8 }, { type: 'decor', kind: 'gbike', c: 10, r: 8 });
-    put(13, 5, '?'); row(16, 5, 'B?MB'); put(19, 8, 'd');
+    row(12, 6, '?B?'); row(13, 4, '?'); put(13, 2, 'M'); put(17, 8, 'd'); put(20, 8, 'd');
     // the GOOGLE letters: each is a block-letter you climb over, in logo colors
     // G (blue)
     block(24, 29, 3, 3, 'plex0'); block(24, 24, 3, 8, 'plex0'); block(24, 29, 8, 8, 'plex0'); block(29, 29, 6, 8, 'plex0'); block(27, 29, 6, 6, 'plex0');
-    coins(25, 2, 5); put(26, 7, 'C'); put(27, 4, 'd');
+    coins(25, 2, 5); put(26, 7, 'C'); put(28, 5, 'd'); put(25, 4, '!');
     // O (red)
     block(33, 37, 3, 3, 'plex1'); block(33, 37, 8, 8, 'plex1'); block(33, 33, 4, 7, 'plex1'); block(37, 37, 4, 7, 'plex1');
     coins(34, 2, 3); coins(34, 6, 3); put(35, 1, '!');
@@ -335,9 +341,9 @@
     put(3, 8, '@');
     // village: pines with lights, a snowman, string lights between posts
     movers.push({ type: 'decor', kind: 'pine', c: 7, r: 8 }, { type: 'decor', kind: 'snowman', c: 12, r: 8 }, { type: 'decor', kind: 'lights', c: 6, r: 3, len: 10 });
-    put(10, 5, '?'); row(14, 5, 'B?MB'); put(18, 8, 'x');
-    movers.push({ type: 'decor', kind: 'pine', c: 21, r: 8 }, { type: 'decor', kind: 'lights', c: 20, r: 2, len: 12 });
-    put(24, 8, '^'); coins(23, 2, 5); put(27, 2, '!');
+    block(9, 10, 8, 8, 'snow'); ice(9, 10, 8); block(15, 16, 7, 8, 'snow'); ice(15, 16, 7); coins(9, 6, 2); coins(15, 5, 2); put(12, 4, '!'); put(19, 8, 'x'); put(23, 8, 'x');
+    movers.push({ type: 'decor', kind: 'pine', c: 26, r: 8 }, { type: 'decor', kind: 'lights', c: 20, r: 2, len: 12 });
+    row(20, 4, 'M?');
     // frozen pond: ice is slippery; foxes on the far bank
     ice(30, 44, GROUND_ROW);
     coins(32, 6, 4, 3); put(37, 5, '?'); put(46, 8, 'x'); put(50, 8, 'x');
@@ -489,7 +495,7 @@
       t.top = !solid(c, r - 1); t.bottom = !solid(c, r + 1); t.left = !solid(c - 1, r); t.right = !solid(c + 1, r);
       t.variant = (c * 7 + r * 3) % 4;
       if (def.theme === 'cave' || def.theme === 'mansion' || def.theme === 'nyc' || def.theme === 'dc' || def.theme === 'cabin' || def.theme === 'snow' || t.paint) continue;
-      if (t.top && r === GROUND_ROW && rows[r - 1][c] === '.' && rows[r - 1][c + 1] === '.' && !pipes.some(p => c >= p.c - 1 && c <= p.c + 2) && !decor.some(d => (d.kind === 'sign' || d.kind === 'stan' || d.kind === 'sign404' || d.kind === 'offline' || d.kind === 'gbike') && c >= d.c - 2 && c <= d.c + 4)) {
+      if (t.top && r === H - 3 && rows[r - 1][c] === '.' && rows[r - 1][c + 1] === '.' && !pipes.some(p => c >= p.c - 1 && c <= p.c + 2) && !decor.some(d => (d.kind === 'sign' || d.kind === 'stan' || d.kind === 'sign404' || d.kind === 'offline' || d.kind === 'gbike') && c >= d.c - 2 && c <= d.c + 4)) {
         const hv = PX.hash(c * 1.31 + 5);
         if (hv > 0.9 && rows[r - 1][c + 2] === '.' && c > 4) decor.push({ kind: 'bush', c, r, s: 0.8 + PX.hash(c) * 0.4 });
         else if (hv < 0.22) decor.push({ kind: 'flower', c, r, kind2: Math.floor(PX.hash(c * 9) * 3), dx: Math.floor(PX.hash(c * 2) * 20) });
