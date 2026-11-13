@@ -39,6 +39,12 @@
       grassLine: '#2d7a30', dark: '#5c584f', mid: '#7e7a70', blades: ['#d8ff9a', '#9ae860', '#62c84a'],
       pebble: ['#f4f2ee', '#8a867c', '#c4c0b6'],
     },
+    // plex buildings: flat Material slabs in the four logo colors (plex0..3) and glass (plex4)
+    plex0: { dirt: ['#7baaf7', '#4285f4', '#3367d6', '#2a56c6'], grass: ['#c6dafc', '#a1c2fa', '#7baaf7', '#4285f4'], grassLine: '#2a56c6', dark: '#1c3aa9', mid: '#2a56c6', blades: [], noBlades: true, pebble: ['#c6dafc', '#1c3aa9', '#3367d6'], flat: true },
+    plex1: { dirt: ['#f07b72', '#ea4335', '#d93025', '#c5221f'], grass: ['#fad2cf', '#f6aea9', '#f07b72', '#ea4335'], grassLine: '#c5221f', dark: '#a50e0e', mid: '#c5221f', blades: [], noBlades: true, pebble: ['#fad2cf', '#a50e0e', '#d93025'], flat: true },
+    plex2: { dirt: ['#fdd663', '#fbbc04', '#f9ab00', '#f29900'], grass: ['#feefc3', '#fde293', '#fdd663', '#fbbc04'], grassLine: '#e37400', dark: '#b06000', mid: '#e37400', blades: [], noBlades: true, pebble: ['#feefc3', '#b06000', '#f29900'], flat: true },
+    plex3: { dirt: ['#5bb974', '#34a853', '#1e8e3e', '#188038'], grass: ['#ceead6', '#a8dab5', '#81c995', '#34a853'], grassLine: '#188038', dark: '#0d652d', mid: '#188038', blades: [], noBlades: true, pebble: ['#ceead6', '#0d652d', '#1e8e3e'], flat: true },
+    plex4: { dirt: ['#e8f0fe', '#d2e3fc', '#aecbfa', '#8ab4f8'], grass: ['#ffffff', '#f1f3f4', '#e8eaed', '#dadce0'], grassLine: '#9aa0a6', dark: '#5f6368', mid: '#9aa0a6', blades: [], noBlades: true, pebble: ['#ffffff', '#5f6368', '#aecbfa'], flat: true },
     dc: {
       dirt: ['#4a5068', '#3a4058', '#2c3146', '#1e2234'], grass: ['#aeb8d0', '#8a96b4', '#66708c', '#464e68'],
       grassLine: '#2c3146', dark: '#141828', mid: '#1e2234', blades: ['#aeb8d0', '#8a96b4', '#66708c'], noBlades: true,
@@ -52,6 +58,7 @@
     },
   };
   const grassDepth = x => 9 + Math.round(Math.sin(x * 0.45) * 1.5 + Math.sin(x * 1.3 + 1) * 1.2 + (hash(x) - 0.5) * 2.5);
+  const flatDepth = () => 4;
 
   // Ground tile canvas is 32x38: 6 px of grass blades overhang above the tile.
   const GROUND_OVER = 6;
@@ -60,7 +67,7 @@
     return memo(`g${theme}${variant}${+top}${+bottom}${+left}${+right}`, () => render(T, T + GROUND_OVER, p => {
       const ox = variant * T;
       for (let i = 0; i < T; i++) {
-        const x = ox + i, gd = top ? grassDepth(x) : 0;
+        const x = ox + i, gd = top ? (th.flat ? flatDepth() : grassDepth(x)) : 0;
         for (let j = 0; j < T; j++) {
           const y = j + GROUND_OVER;
           if (j < gd) {
@@ -85,7 +92,7 @@
         }
       }
       // pebbles and roots
-      for (let k = 0; k < 3; k++) {
+      for (let k = 0; k < (th.flat ? 0 : 3); k++) {
         const px0 = 2 + Math.floor(hash(variant * 5.1 + k * 3.7) * 24), py0 = (top ? 16 : 4) + Math.floor(hash(variant * 2.3 + k) * 12);
         const w = 4 + Math.floor(hash(variant + k) * 3), h = 3;
         for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
@@ -97,14 +104,19 @@
         const rx = Math.floor(hash(variant * 9.7 + k) * 28), ry = 6 + Math.floor(hash(variant * 4.9 + k * 2) * 22);
         p.rect(rx, GROUND_OVER + ry, 3, 1, th.mid); p.px(rx + 1, GROUND_OVER + ry + 1, th.dark);
       }
+      if (th.flat) {
+        p.rect(0, GROUND_OVER + (top ? grassDepth(ox) : 0), T, 1, th.grass[0]); p.rect(0, GROUND_OVER + T - 1, T, 1, th.dark);
+        if (theme === 'plex4') { for (let j = 6; j < T - 4; j += 10) for (let i = 4; i < T - 4; i += 10) { p.rect(i, GROUND_OVER + j, 7, 6, hash(ox + i + j * 3) > 0.35 ? '#fff8d6' : '#aecbfa'); p.rect(i, GROUND_OVER + j, 7, 1, '#ffffff'); } }
+        else if (!top) { p.rect(0, GROUND_OVER + 15, T, 1, th.dark); p.rect(16 * ((variant) % 2), GROUND_OVER, 1, 16, th.dark); p.rect(16 * ((variant + 1) % 2), GROUND_OVER + 16, 1, 16, th.dark); }
+      }
       if (theme === 'nyc') for (let j = (top ? 12 : 0); j < T; j += 6) { p.rect(0, GROUND_OVER + j, T, 1, '#5a3028'); for (let i = ((j / 6) % 2) * 8; i < T; i += 16) p.rect(i, GROUND_OVER + j, 1, 6, '#5a3028'); }
       if (theme === 'nycroad' && top) { p.rect(0, GROUND_OVER + 7, T, 1, '#f2c84a'); if (variant % 2 === 0) p.rect(4, GROUND_OVER + 20, 18, 2, '#e8e8d0'); }
       // data center: raised floor tiles with a status LED on the top edge
       if (theme === 'dc') { p.rect(0, GROUND_OVER + (top ? 8 : 0), 1, T, '#141828'); p.rect(0, GROUND_OVER + 16, T, 1, '#141828'); if (top) p.rect(6 + variant * 6, GROUND_OVER + 3, 2, 2, ['#34a853', '#4285f4', '#fbbc04', '#ea4335'][variant]); }
       // exposed edges
       if (bottom) { p.rect(0, GROUND_OVER + T - 2, T, 2, th.dark); p.rect(0, GROUND_OVER + T - 3, T, 1, th.mid); }
-      if (left) { p.rect(0, GROUND_OVER + (top ? 2 : 0), 1, T, top ? th.grassLine : th.dark); p.rect(0, GROUND_OVER + (top ? grassDepth(ox) : 0), 1, T, th.dark); }
-      if (right) { p.rect(T - 1, GROUND_OVER + (top ? grassDepth(ox + T - 1) : 0), 1, T, th.dark); }
+      if (left) { p.rect(0, GROUND_OVER + (top ? 2 : 0), 1, T, top ? th.grassLine : th.dark); p.rect(0, GROUND_OVER + (top ? (th.flat ? flatDepth() : grassDepth(ox)) : 0), 1, T, th.dark); }
+      if (right) { p.rect(T - 1, GROUND_OVER + (top ? (th.flat ? flatDepth() : grassDepth(ox + T - 1)) : 0), 1, T, th.dark); }
     }));
   }
 
@@ -125,6 +137,31 @@
   const QG = ['..QQQQQQQQ..', '.QQQQQQQQQQ.', 'QQQQ....QQQQ', 'QQQQ....QQQQ', '........QQQQ', '.......QQQQ.', '......QQQQ..', '.....QQQQ...', '.....QQQQ...', '............', '.....QQQQ...', '.....QQQQ...'];
   function rivets(p, x, y, body) {
     for (const [rx, ry] of [[3, 3], [26, 3], [3, 26], [26, 26]]) { p.rect(x + rx, y + ry, 3, 3, '#c97a18'); p.px(x + rx, y + ry, '#fff0b0'); p.px(x + rx + 1, y + ry + 1, body); p.px(x + rx + 2, y + ry + 2, '#7a410c'); }
+  }
+  const GCOLS = ['#4285f4', '#ea4335', '#fbbc04', '#34a853'];
+  function card(p) { p.rect(0, 0, 32, 32, '#9aa0a6'); p.rect(1, 1, 30, 30, '#ffffff'); p.rect(1, 29, 30, 2, '#dadce0'); p.rect(29, 1, 2, 30, '#e8eaed'); p.rect(1, 1, 30, 1, '#ffffff'); }
+  function plexQuestion(frame) {
+    return memo('pq' + frame, () => render(T, T, p => {
+      card(p);
+      for (let i = 0; i < 4; i++) p.rect(4 + i * 6, 25, 6, 3, GCOLS[i]);
+      const gx = 10, gy = 6;
+      for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) if (QG[j][i] === 'Q') p.px(gx + i, gy + j, GCOLS[(Math.floor((i + j + frame * 3) / 6)) % 4]);
+      if (frame > 0) { const gx2 = 4 + frame * 7; p.alpha(0.45, () => { p.rect(gx2, 3, 2, 20, '#ffffff'); p.rect(gx2 + 3, 3, 1, 20, '#ffffff'); }); }
+    }));
+  }
+  function plexUsed() {
+    return memo('pused', () => render(T, T, p => {
+      p.rect(0, 0, 32, 32, '#9aa0a6'); p.rect(1, 1, 30, 30, '#f1f3f4'); p.rect(1, 29, 30, 2, '#dadce0');
+      for (let y = -9; y <= 9; y++) for (let x = -9; x <= 9; x++) { const d = x * x + y * y; if (d > 81 || d < 36) continue; if (x > 1 && Math.abs(y) < 4) continue; const a = Math.atan2(y, x); p.px(16 + x, 16 + y, a < -Math.PI / 2 ? '#ea4335' : a < 0 ? '#fbbc04' : a < Math.PI / 2 ? '#34a853' : '#4285f4'); }
+      p.rect(16, 14, 9, 3, '#4285f4');
+    }));
+  }
+  function plexBrick() {
+    return memo('pbrick', () => render(T, T, p => {
+      card(p); p.rect(1, 1, 30, 4, '#4285f4'); p.rect(1, 5, 30, 1, '#3367d6');
+      p.rect(5, 10, 22, 2, '#dadce0'); p.rect(5, 15, 16, 2, '#dadce0'); p.rect(5, 20, 20, 2, '#dadce0');
+      p.rect(22, 15, 5, 2, '#34a853');
+    }));
   }
   function questionBlock(frame) {
     return memo('q' + frame, () => render(T, T, p => {
@@ -468,6 +505,37 @@
     }));
   }
 
+  // Googleplex campus strip: low glass buildings with solar roofs, the Android
+  // statue, the big sign, and the Bay hills behind. Bottom of the strip is the ground line.
+  function campus(w, h) {
+    return memo('campus', () => render(w, h, p => {
+      const G = h;
+      for (const [cx, r, hg] of [[200, 160, 50], [620, 220, 64], [1040, 180, 56]]) { for (let x = cx - r; x <= cx + r; x++) { const u = (x + .5 - cx) / r, hh = Math.sqrt(Math.max(0, 1 - u * u)) * hg; for (let y = Math.floor(G - 30 - hh); y < G - 30; y++) p.px(x, y, y < G - 30 - hh + 2 ? '#b9d8a8' : '#9cc48c'); if (cx + r > w) { for (let y = Math.floor(G - 30 - hh); y < G - 30; y++) p.px(x - w, y, '#9cc48c'); } } }
+      p.rect(0, G - 30, w, 30, '#8fbf7c');
+      // buildings
+      const bl = [[20, 120, 70, '#e8eaed', '#4285f4'], [160, 90, 56, '#f1f3f4', '#ea4335'], [270, 150, 80, '#e8eaed', '#fbbc04'], [470, 100, 60, '#f8f9fa', '#34a853'], [600, 170, 72, '#e8eaed', '#4285f4'], [800, 110, 58, '#f1f3f4', '#ea4335'], [940, 140, 76, '#e8eaed', '#34a853'], [1110, 96, 54, '#f8f9fa', '#fbbc04']];
+      for (const [x, bw, bh, body, trim] of bl) {
+        const y0 = G - 24 - bh;
+        p.rect(x, y0, bw, bh + 4, body); p.rect(x, y0, bw, 1, '#ffffff'); p.rect(x + bw - 1, y0, 1, bh + 4, '#bdc1c6'); p.rect(x, G - 21, bw, 1, '#bdc1c6');
+        // solar panels on the roof
+        for (let sx = x + 4; sx < x + bw - 10; sx += 12) { p.rect(sx, y0 - 5, 9, 4, '#1a2a5a'); p.rect(sx, y0 - 5, 9, 1, '#5b8def'); p.rect(sx + 4, y0 - 1, 1, 1, '#5f6368'); }
+        // glass rows
+        for (let wy = y0 + 6; wy < G - 28; wy += 10) { p.rect(x + 3, wy, bw - 6, 6, '#aecbfa'); p.rect(x + 3, wy, bw - 6, 1, '#d2e3fc'); for (let wx = x + 3; wx < x + bw - 3; wx += 9) p.rect(wx, wy, 1, 6, body); }
+        p.rect(x, y0 + bh - 10, bw, 4, trim);
+        // trees in front
+        for (let tx = x + 6; tx < x + bw; tx += 34) { p.rect(tx + 3, G - 30, 2, 8, '#6b4a2b'); p.disc(tx + 4, G - 33, 6, '#5bb974'); p.disc(tx + 2, G - 35, 4, '#81c995'); }
+      }
+      // the big sign and the Android statue
+      p.rect(390, G - 60, 6, 38, '#9aa0a6'); p.rect(360, G - 84, 66, 26, '#ffffff'); p.rect(360, G - 84, 66, 1, '#dadce0'); p.rect(360, G - 59, 66, 1, '#bdc1c6');
+      GCOLS.forEach((c, i) => p.disc(371 + i * 15, G - 71, 5, c));
+      const ax = 740, ay = G - 24;
+      p.rect(ax - 10, ay - 38, 20, 22, '#3ddc84'); p.rect(ax - 12, ay - 16, 24, 2, '#27b468'); p.disc(ax, ay - 42, 10, '#3ddc84'); p.rect(ax - 10, ay - 42, 20, 4, '#3ddc84');
+      p.px(ax - 4, ay - 45, '#ffffff'); p.px(ax + 4, ay - 45, '#ffffff'); p.rect(ax - 14, ay - 36, 3, 16, '#3ddc84'); p.rect(ax + 11, ay - 36, 3, 16, '#3ddc84'); p.rect(ax - 7, ay - 16, 5, 10, '#3ddc84'); p.rect(ax + 2, ay - 16, 5, 10, '#3ddc84');
+      p.rect(ax - 6, ay - 52, 1, 4, '#27b468'); p.rect(ax + 6, ay - 52, 1, 4, '#27b468');
+      p.rect(ax - 20, ay - 6, 40, 6, '#bdc1c6'); p.rect(ax - 20, ay - 6, 40, 1, '#e8eaed');
+    }));
+  }
+
   // ----- decorations (drawn in the world layer, sitting on the ground) -----
   const bushRamp = ['#a4f085', '#6fd45c', '#46b04a', '#2c8a3c'];
   function bush(s) {
@@ -530,11 +598,20 @@
       p.rect(34, 24, 20, 8, '#4285f4'); p.rect(34, 24, 20, 1, '#6fa3ff'); p.rect(34, 31, 20, 1, '#2a63c4');
     }));
   }
+  // Freestanding boards: the "404 NOT FOUND" sign and the offline dino banner.
+  function plexBoard(kind) {
+    return memo('board' + kind, () => render(96, 44, p => {
+      p.rect(44, 30, 4, 14, '#9aa0a6'); p.rect(44, 30, 1, 14, '#dadce0');
+      p.rect(0, 0, 96, 32, '#5f6368'); p.rect(1, 1, 94, 30, '#ffffff'); p.rect(1, 1, 94, 1, '#f1f3f4'); p.rect(1, 29, 94, 2, '#dadce0');
+      if (kind === 'sign404') { p.text('404', 30, 5, 2, '#ea4335'); p.text('NOT FOUND', 22, 21, 1, '#5f6368'); }
+      else { p.text('NO INTERNET', 15, 5, 1, '#202124'); p.text('PRESS SPACE', 15, 15, 1, '#5f6368'); p.text('TO PLAY', 27, 23, 1, '#5f6368'); }
+    }));
+  }
   function shadow(rx) {
     return memo('shadow' + rx, () => render(rx * 2, 4, p => {
       p.alpha(0.25, () => { for (let y = -2; y <= 1; y++) { const w = Math.round(rx * Math.sqrt(1 - (y * y) / 4.01)); p.rect(rx - w, 2 + y, w * 2, 1, '#1a3a1a'); } });
     }));
   }
 
-  window.TILES = { T, GROUND_OVER, THEMES, ground, crack, gate, lift, log, caveSky, mansionSky, citySky, dcSky, skyline, questionBlock, usedBlock, brick, pipe, waterBack, waterFront, sky, clouds, hills, bush, flower, lily, pole, shadow, plexSign, gTotem };
+  window.TILES = { T, GROUND_OVER, THEMES, ground, crack, gate, lift, log, caveSky, mansionSky, citySky, dcSky, skyline, questionBlock, usedBlock, brick, pipe, waterBack, waterFront, sky, clouds, hills, campus, bush, flower, lily, pole, shadow, plexSign, gTotem, plexQuestion, plexUsed, plexBrick, plexBoard, GCOLS };
 })();

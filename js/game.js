@@ -737,8 +737,9 @@
       } else if (!cave) {
         const cw = this.bg.clouds.width, cx0 = -((cam.x * 0.25) % cw);
         ctx.drawImage(this.bg.clouds, Math.round(cx0), 0); ctx.drawImage(this.bg.clouds, Math.round(cx0 + cw), 0);
-        const hw = this.bg.hills.width, hx0 = -((cam.x * 0.5) % hw), hy = LEVELS.GROUND_ROW * T - this.bg.hills.height;
-        ctx.drawImage(this.bg.hills, Math.round(hx0), hy); ctx.drawImage(this.bg.hills, Math.round(hx0 + hw), hy);
+        const hills = lv.theme === 'plex' ? TILES.campus(1280, 140) : this.bg.hills;
+        const hw = hills.width, hx0 = -((cam.x * 0.5) % hw), hy = LEVELS.GROUND_ROW * T - hills.height;
+        ctx.drawImage(hills, Math.round(hx0), hy); ctx.drawImage(hills, Math.round(hx0 + hw), hy);
       }
       const c0 = Math.max(0, Math.floor(cam.x / T) - 1), c1 = Math.min(lv.W - 1, Math.floor((cam.x + VW) / T) + 1);
       for (const d of lv.decor) {
@@ -748,6 +749,9 @@
         else if (d.kind === 'cart') { const s = SPRITES.extras.HOTDOG_CART.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
         else if (d.kind === 'sign') { const s = TILES.plexSign(); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
         else if (d.kind === 'totem') { const s = TILES.gTotem(); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
+        else if (d.kind === 'gbike') { const s = SPRITES.extras.GBIKE.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height + 3); }
+        else if (d.kind === 'stan') { const s = SPRITES.extras.STAN.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height * 2 + 6, s.width * 2, s.height * 2); }
+        else if (d.kind === 'sign404' || d.kind === 'offline') { const s = TILES.plexBoard(d.kind); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
       }
       if (lv.house) { const hs = SPRITES.extras.HOUSE.r; ctx.drawImage(hs, Math.round(lv.house.c * T - cam.x), (lv.house.r + 1) * T - hs.height); }
       if (lv.flag) {
@@ -762,14 +766,15 @@
       for (let r = 0; r < lv.H; r++) for (let c = c0; c <= c1; c++) {
         const t = lv.tiles[r][c]; if (!t) continue;
         const x = Math.round(c * T - cam.x), y = r * T;
-        if (t.type === 'ground') ctx.drawImage(TILES.ground(t.variant, t.top, t.bottom, t.left, t.right, city && r >= LEVELS.GROUND_ROW ? 'nycroad' : lv.theme), x, y - GROUND_OVER);
+        if (t.type === 'ground') ctx.drawImage(TILES.ground(t.variant, t.top, t.bottom, t.left, t.right, t.paint || (city && r >= LEVELS.GROUND_ROW ? 'nycroad' : lv.theme)), x, y - GROUND_OVER);
         else if (t.type === 'water') ctx.drawImage(TILES.waterBack(t.depth, wf), x, y);
         else if (t.type === 'hidden') continue;
         else if (t.type === 'gate') ctx.drawImage(TILES.gate(), x, y);
         else if (t.type === 'brick' || t.type === 'q' || t.type === 'used' || t.type === 'crack') {
           const b = this.bumps.find(b => b.c === c && b.r === r);
           const oy = b ? -Math.round(Math.sin(b.t / 14 * Math.PI) * 8) : 0;
-          const img = t.type === 'brick' ? TILES.brick() : t.type === 'used' ? TILES.usedBlock() : t.type === 'crack' ? TILES.crack() : TILES.questionBlock(this.qFrame());
+          const plex = lv.theme === 'plex' || lv.theme === 'dc';
+          const img = t.type === 'brick' ? (plex ? TILES.plexBrick() : TILES.brick()) : t.type === 'used' ? (plex ? TILES.plexUsed() : TILES.usedBlock()) : t.type === 'crack' ? TILES.crack() : plex ? TILES.plexQuestion(this.qFrame()) : TILES.questionBlock(this.qFrame());
           ctx.drawImage(img, x, y + oy);
         }
       }

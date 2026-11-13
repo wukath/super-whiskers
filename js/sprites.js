@@ -255,7 +255,7 @@
     if (sb) { const cv = spriteFromMap(sb.rows, sb.pal); extras[n] = { l: cv, r: flipH(cv), w: sb.w, h: sb.h }; }
     else { const cv = render(32, 16, p => { p.rect(0, 0, 32, 16, '#ff00ff'); p.rect(4, 4, 24, 8, '#000000'); }); extras[n] = { l: cv, r: cv, w: 32, h: 16 }; }
   }
-  for (const n of ['DROID', 'DRONE', 'DRONE2', 'PARCEL', 'DINO', 'DINO2', 'CACTUS']) {
+  for (const n of ['DROID', 'DRONE', 'DRONE2', 'PARCEL', 'DINO', 'DINO2', 'CACTUS', 'SVCAR', 'GBIKE', 'STAN']) {
     const sb = window.SPR_PLEX && window.SPR_PLEX[n];
     if (sb) { const cv = spriteFromMap(sb.rows, sb.pal); extras[n] = { l: cv, r: flipH(cv), w: sb.w, h: sb.h }; }
     else { const cv = render(24, 24, p => { p.rect(0, 0, 24, 24, '#ff00ff'); p.rect(4, 4, 16, 16, '#000000'); }); extras[n] = { l: cv, r: cv, w: 24, h: 24 }; }

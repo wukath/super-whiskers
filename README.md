@@ -46,10 +46,11 @@ pipes and the flag take everyone along.
 5. **Midtown Rush** — New York at night. Dodge or ride yellow cabs, climb fire escapes to
    the rooftops, ride an elevated train (duck under the signals), surf steam vents over
    open manholes. Rats, swooping pigeons and lid-throwing raccoons.
-6. **The Googleplex** — a sunny campus. Ride search-bar lifts over the pond, stomp bugdroids
-   (twice — the first hit only dents them), dodge parcels from delivery drones, warp into a
-   data center full of blinking racks, then survive the "no internet" run: hop the cacti
-   before the Chrome dino wakes up and charges. Climb the office roofs past the G totem to the flag.
+6. **The Googleplex** — a sunny campus where the terrain spells GOOGLE in Material-colored
+   blocks. Ride Street View cars, stomp bugdroids (twice — the first hit only dents them), dodge
+   parcels from delivery drones, take a warp pipe into a data center full of blinking racks, then
+   survive the "no internet" run: hop the cacti before the Chrome dino wakes up and charges, with
+   Stan the T-rex looking on. Climb the office towers past the G totem to a rainbow staircase.
 
 Power-ups: fish snack (grow), ball of yarn (throw bouncing yarn balls), star (invincible),
 milk carton (1-up, hidden in invisible blocks).

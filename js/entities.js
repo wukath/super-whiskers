@@ -516,7 +516,7 @@
   }
   // Yellow cabs barrel along the street. They hurt from the side but you can ride the roof.
   class Taxi extends Enemy {
-    constructor(x, y, dir) { super(x, y, 58, 22); this.vx = 4.3 * dir; this.facing = dir; this.isPlatform = true; this.isTaxi = true; this.active = true; this.dx = 0; this.dy = 0; this.points = 0; this.riders = 0; this.life = 600; }
+    constructor(x, y, dir, skin) { super(x, y, 58, 22); this.vx = (skin === 'svcar' ? 3.2 : 4.3) * dir; this.facing = dir; this.isPlatform = true; this.isTaxi = true; this.active = true; this.dx = 0; this.dy = 0; this.points = 0; this.riders = 0; this.life = 600; this.skin = skin || 'taxi'; }
     ridden() { this.riders = 2; }
     behave(game) {
       const px = this.x; this.x += this.vx; this.dx = this.x - px; this.dy = 0;
@@ -526,7 +526,7 @@
     stomp(game, player) { }
     touch(game, player) { if (player.carrier === this) return; player.hurt(game); }
     flipKill(game, dir) { }
-    draw(ctx, cam) { const ex = S().extras; this.drawImg(ctx, cam, (Math.floor(this.t / 4) % 2) ? ex.TAXI2 : ex.TAXI); ctx.globalAlpha = 0.35; ctx.fillStyle = '#fff6b0'; const hx = this.facing < 0 ? this.x - 40 : this.x + this.w; ctx.beginPath(); ctx.moveTo(Math.round((this.facing < 0 ? this.x : this.x + this.w) - cam.x), Math.round(this.y + 12 - cam.y)); ctx.lineTo(Math.round(hx - cam.x), Math.round(this.y + 2 - cam.y)); ctx.lineTo(Math.round(hx - cam.x), Math.round(this.y + 22 - cam.y)); ctx.fill(); ctx.globalAlpha = 1; }
+    draw(ctx, cam) { const ex = S().extras; if (this.skin === 'svcar') { this.drawImg(ctx, cam, ex.SVCAR, 0, 4); return; } this.drawImg(ctx, cam, (Math.floor(this.t / 4) % 2) ? ex.TAXI2 : ex.TAXI); ctx.globalAlpha = 0.35; ctx.fillStyle = '#fff6b0'; const hx = this.facing < 0 ? this.x - 40 : this.x + this.w; ctx.beginPath(); ctx.moveTo(Math.round((this.facing < 0 ? this.x : this.x + this.w) - cam.x), Math.round(this.y + 12 - cam.y)); ctx.lineTo(Math.round(hx - cam.x), Math.round(this.y + 2 - cam.y)); ctx.lineTo(Math.round(hx - cam.x), Math.round(this.y + 22 - cam.y)); ctx.fill(); ctx.globalAlpha = 1; }
   }
   // Invisible: releases a cab every so often while a cat is near, with a honk as warning.
   class TaxiSpawner extends Entity {
@@ -534,11 +534,11 @@
     update(game) {
       const near = game.alivePlayers().some(p => p.cx > this.x - 200 && p.cx < this.x + this.w + 200);
       if (!near) { this.timer = Math.min(this.timer, 60); return; }
-      if (--this.timer === 70) { AUDIO.SFX.honk(); game.add(new ScorePop(game.cam.x + (this.dir < 0 ? 560 : 40), this.y - 10, 'HONK!')); }
+      if (--this.timer === 70) { AUDIO.SFX.honk(); game.add(new ScorePop(game.cam.x + (this.dir < 0 ? 520 : 40), this.y - 10, this.spec.kind === 'svcar' ? 'SMILE!' : 'HONK!')); }
       if (this.timer <= 0) {
         this.timer = this.spec.period || 230;
         const x = this.dir < 0 ? Math.max(this.x + this.w, game.cam.x + 660) : Math.min(this.x - 64, game.cam.x - 80);
-        game.add(new Taxi(x, this.y + T - 22, this.dir));
+        game.add(new Taxi(x, this.y + T - 22, this.dir, this.spec.kind));
       }
     }
     draw() { }
@@ -958,7 +958,7 @@
   Pigeon.prototype.kind = 'pigeon'; Pigeon.prototype.netFields = ['flipDead', 'state'];
   Raccoon.prototype.kind = 'raccoon'; Raccoon.prototype.netFields = ['flipDead', 'throwing', 'throwT'];
   Lid.prototype.kind = 'lid'; Lid.prototype.netFields = [];
-  Taxi.prototype.kind = 'taxi'; Taxi.prototype.netFields = [];
+  Taxi.prototype.kind = 'taxi'; Taxi.prototype.netFields = ['skin'];
   Vent.prototype.kind = 'vent'; Vent.prototype.netFields = ['on', 'off', 'ph', 'height'];
   Droid.prototype.kind = 'droid'; Droid.prototype.netFields = ['squishTimer', 'flipDead', 'hp', 'h'];
   Drone.prototype.kind = 'drone'; Drone.prototype.netFields = ['flipDead', 'carrying'];

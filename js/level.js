@@ -15,9 +15,10 @@
 
   function grid(W) {
     const g = [];
+    let L;
     for (let r = 0; r < ROWS; r++) g.push(new Array(W).fill('.'));
     const put = (c, r, ch) => { if (c >= 0 && c < W && r >= 0 && r < ROWS) g[r][c] = ch; };
-    return {
+    L = {
       g, put,
       row: (c, r, s) => { for (let i = 0; i < s.length; i++) if (s[i] !== ' ') put(c + i, r, s[i]); },
       fill: (c0, c1, r0, r1, ch) => { for (let c = c0; c <= c1; c++) for (let r = r0; r <= r1; r++) put(c, r, ch); },
@@ -29,7 +30,11 @@
       platform: (c, r, n) => { for (let i = 0; i < n; i++) put(c + i, r, '#'); },
       coins: (c, r, n, step = 1) => { for (let i = 0; i < n; i++) put(c + i * step, r, 'C'); },
       rows: () => g.map(r => r.join('')),
+      // paint: per-tile ground theme override, keyed "c,r"
+      paint: {},
+      block: (c0, c1, r0, r1, theme) => { for (let c = c0; c <= c1; c++) for (let r = r0; r <= r1; r++) { put(c, r, '#'); L.paint[c + ',' + r] = theme; } },
     };
+    return L;
   }
 
   function buildLevel1() {
@@ -250,51 +255,70 @@
     return { rows: L.rows(), movers, warps: [], theme: 'nyc', name: 'main', time: 450, title: 'MIDTOWN RUSH' };
   }
 
-  // Level 6: the Googleplex. Campus lawns, search-bar lifts over the pond,
-  // bugdroids, delivery drones, a data-center detour, the offline dino run,
-  // then a rooftop climb past the G totem.
+  // Level 6: the Googleplex. Terrain spells GOOGLE in Material-colored blocks,
+  // a campus road with Street View cars, bugdroids, delivery drones, a
+  // data-center detour, the offline dino run, then the rooftop G totem.
   function buildLevel6() {
-    const W = 214, L = grid(W);
-    const { put, row, fill, pit, water, pipe, stairsUp, stairsDown, platform, coins } = L;
+    const W = 230, L = grid(W);
+    const { put, row, fill, pit, water, pipe, stairsUp, stairsDown, platform, coins, block } = L;
     const movers = [], warps = [];
     for (let c = 0; c < W; c++) for (let r = GROUND_ROW; r < ROWS; r++) put(c, r, '#');
     put(3, 8, '@');
-    // campus entrance: the sign, a welcome block and the first droid
-    movers.push({ type: 'decor', kind: 'sign', c: 6, r: 8 });
-    put(12, 5, '?'); row(15, 5, 'B?MB'); put(18, 8, 'd');
-    put(22, 8, '^'); coins(21, 2, 4); put(26, 2, '!');
-    // the pond: search-bar lifts and a fish
-    water(30, 41); put(32, 10, 'f'); put(37, 9, 'f'); put(40, 10, 'f');
-    movers.push({ type: 'hlift', c: 30, r: 7, range: 3 }, { type: 'vlift', c: 36, r: 8, range: 3, phase: Math.PI }, { type: 'hlift', c: 38, r: 6, range: 2 });
-    coins(31, 5, 3); coins(35, 3, 3); coins(39, 4, 2);
-    // Android lawn: a droid pack, a cracked wall and a roof you can climb
-    put(45, 8, 'd'); put(48, 8, 'd'); put(51, 8, 'd'); row(47, 5, '?BB?');
-    put(55, 7, 'X'); put(55, 8, 'X'); coins(55, 4, 2);
-    platform(58, 6, 3); platform(62, 4, 3); coins(58, 5, 3); coins(62, 3, 3); put(60, 8, 'd'); put(65, 1, 'S');
-    stairsUp(67, 3); pit(70, 72); stairsDown(73, 3); movers.push({ type: 'hlift', c: 70, r: 7, range: 1 });
-    // delivery alley: drones overhead, keep moving or eat a parcel
-    put(84, 3, 'D'); put(93, 3, 'D'); put(102, 2, 'D');
-    coins(78, 7, 5, 2); coins(88, 7, 5, 2); coins(98, 7, 4, 2);
-    pit(86, 86); pit(96, 97); put(91, 8, 'd'); put(100, 8, 'd');
-    row(90, 5, 'BMB');
+    // campus entrance: the sign, a parked gBike, a welcome card and the first droid
+    movers.push({ type: 'decor', kind: 'sign', c: 6, r: 8 }, { type: 'decor', kind: 'gbike', c: 10, r: 8 });
+    put(13, 5, '?'); row(16, 5, 'B?MB'); put(19, 8, 'd');
+    // the GOOGLE letters: each is a block-letter you climb over, in logo colors
+    // G (blue)
+    block(24, 29, 3, 3, 'plex0'); block(24, 24, 3, 8, 'plex0'); block(24, 29, 8, 8, 'plex0'); block(29, 29, 6, 8, 'plex0'); block(27, 29, 6, 6, 'plex0');
+    coins(25, 2, 5); put(26, 7, 'C'); put(27, 4, 'd');
+    // O (red)
+    block(33, 37, 3, 3, 'plex1'); block(33, 37, 8, 8, 'plex1'); block(33, 33, 4, 7, 'plex1'); block(37, 37, 4, 7, 'plex1');
+    coins(34, 2, 3); coins(34, 6, 3); put(35, 1, '!');
+    // O (yellow)
+    block(41, 45, 3, 3, 'plex2'); block(41, 45, 8, 8, 'plex2'); block(41, 41, 4, 7, 'plex2'); block(45, 45, 4, 7, 'plex2');
+    coins(42, 2, 3); coins(42, 6, 3); put(43, 2, 'd');
+    // G (blue)
+    block(49, 54, 3, 3, 'plex0'); block(49, 49, 4, 8, 'plex0'); block(49, 54, 8, 8, 'plex0'); block(54, 54, 6, 8, 'plex0'); block(52, 54, 6, 6, 'plex0');
+    coins(50, 2, 5); put(51, 7, 'C'); put(53, 7, 'C');
+    // L (green)
+    block(58, 58, 3, 8, 'plex3'); block(58, 62, 8, 8, 'plex3'); coins(59, 2, 1); coins(60, 7, 3); put(61, 4, 'S');
+    // E (red)
+    block(66, 70, 3, 3, 'plex1'); block(66, 66, 4, 8, 'plex1'); block(66, 69, 6, 6, 'plex1'); block(66, 70, 8, 8, 'plex1');
+    coins(67, 2, 4); put(68, 5, 'C'); put(68, 7, 'C'); put(72, 8, 'd');
+    // glass pedestals between the letters so a fall into a gap is climbable
+    for (const c of [31, 39, 47, 56, 64]) block(c, c, 6, 8, 'plex4');
+    // campus road: Street View cars, a crosswalk and a gBike rack
+    movers.push({ type: 'taxis', kind: 'svcar', c: 76, r: 8, len: 20, period: 320, dir: -1 });
+    platform(80, 6, 2); coins(80, 5, 2); platform(86, 4, 2); coins(86, 3, 2); platform(92, 6, 2); coins(92, 5, 2);
+    movers.push({ type: 'decor', kind: 'gbike', c: 97, r: 8 }, { type: 'decor', kind: 'gbike', c: 98, r: 8 });
+    row(96, 4, '?B?'); put(99, 8, 'd');
+    // glass office with a search-bar lift up to the roof, drones overhead
+    block(102, 108, 5, 8, 'plex4'); put(104, 4, 'd'); coins(103, 3, 5);
+    movers.push({ type: 'vlift', c: 110, r: 8, range: 4 });
+    put(114, 2, 'D'); put(122, 2, 'D');
+    block(113, 118, 2, 8, 'plex4'); coins(113, 0, 6); put(116, 1, 'd');
+    pit(120, 121); platform(121, 5, 2); coins(121, 4, 2);
+    movers.push({ type: 'decor', kind: 'sign404', c: 124, r: 8 });
     // data center detour: the warp pipe drops into the server hall
-    pipe(106, 3, true); put(104, 8, 'd');
-    warps.push({ from: { level: 'main', c: 106, r: 6 }, to: { level: 'dc', c: 2, r: 1, dir: 'drop' } });
-    // no internet: cacti to hop and a sleeping dino that charges when you get close
-    put(112, 5, '?'); put(116, 8, 'c'); put(122, 8, 'c'); coins(119, 6, 2); put(127, 8, 'c'); put(128, 8, 'c'); coins(125, 5, 2); put(132, 8, 'c'); put(137, 8, 'n');
-    pipe(142, 2);
-    warps.push({ from: { level: 'dc', c: 36, r: 7 }, to: { level: 'main', c: 142, r: 7, dir: 'rise' } });
-    // second dino run, this time with a pit under the last cactus
-    put(148, 8, 'c'); pit(152, 153); put(154, 8, 'c'); put(159, 8, 'n'); row(150, 4, '?B?'); coins(156, 5, 2);
-    // rooftop climb: office blocks with droids on the roofs and the G totem on top
-    fill(164, 167, 5, 8, '#'); fill(170, 173, 3, 8, '#'); fill(176, 180, 2, 8, '#');
-    platform(162, 7, 1); coins(164, 4, 4); put(166, 4, 'd'); put(169, 6, 'C'); coins(170, 2, 4); put(172, 2, 'd'); platform(174, 4, 1); put(174, 3, 'C'); coins(176, 1, 5);
-    movers.push({ type: 'decor', kind: 'totem', c: 177, r: 1 });
-    movers.push({ type: 'fall', c: 182, r: 3 }, { type: 'fall', c: 185, r: 5 }); coins(183, 2, 1); coins(186, 4, 1); put(183, 8, 'd'); put(187, 8, 'd');
-    stairsUp(190, 6); fill(196, 196, 3, 8, '#');
-    put(202, 8, 'F');
-    put(209, 8, 'H');
-    return { rows: L.rows(), movers, warps, theme: 'plex', name: 'main', time: 450, title: 'THE GOOGLEPLEX' };
+    pipe(128, 3, true); put(126, 8, 'd');
+    warps.push({ from: { level: 'main', c: 128, r: 6 }, to: { level: 'dc', c: 2, r: 1, dir: 'drop' } });
+    // no internet: the dino run through cacti, with Stan the T-rex looking on
+    movers.push({ type: 'decor', kind: 'offline', c: 133, r: 8 });
+    put(138, 8, 'c'); put(143, 8, 'c'); coins(140, 6, 2); put(148, 8, 'c'); put(149, 8, 'c'); coins(146, 5, 2); put(153, 8, 'c'); put(158, 8, 'n');
+    movers.push({ type: 'decor', kind: 'stan', c: 161, r: 8 });
+    pipe(166, 2);
+    warps.push({ from: { level: 'dc', c: 36, r: 7 }, to: { level: 'main', c: 166, r: 7, dir: 'rise' } });
+    put(171, 8, 'c'); pit(175, 176); put(177, 8, 'c'); put(182, 8, 'n'); row(173, 4, '?B?'); coins(179, 5, 2);
+    // rooftop climb: Material towers with droids on the roofs and the G totem on top
+    block(186, 189, 5, 8, 'plex3'); block(192, 195, 3, 8, 'plex2'); block(198, 202, 2, 8, 'plex1');
+    platform(184, 7, 1); coins(186, 4, 4); put(188, 4, 'd'); put(191, 6, 'C'); coins(192, 2, 4); put(194, 2, 'd'); platform(196, 4, 1); put(196, 3, 'C'); coins(198, 1, 5);
+    movers.push({ type: 'decor', kind: 'totem', c: 199, r: 1 });
+    movers.push({ type: 'fall', c: 204, r: 3 }, { type: 'fall', c: 207, r: 5 }); coins(205, 2, 1); coins(208, 4, 1); put(205, 8, 'd'); put(209, 8, 'd');
+    // rainbow staircase up to the flag
+    ['plex0', 'plex1', 'plex2', 'plex3', 'plex0', 'plex1'].forEach((th, i) => block(212 + i, 212 + i, 8 - i, 8, th));
+    put(220, 8, 'F');
+    put(226, 8, 'H');
+    return { rows: L.rows(), paint: L.paint, movers, warps, theme: 'plex', name: 'main', time: 450, title: 'THE GOOGLEPLEX' };
   }
 
   // Data center reached from level 6: a dark server hall with coins between the racks.
@@ -325,7 +349,7 @@
     for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
       const ch = rows[r][c];
       switch (ch) {
-        case '#': tiles[r][c] = { type: 'ground', c, r }; break;
+        case '#': tiles[r][c] = { type: 'ground', c, r, paint: def.paint && def.paint[c + ',' + r] }; break;
         case 'B': tiles[r][c] = { type: 'brick', c, r }; break;
         case 'X': tiles[r][c] = { type: 'crack', c, r }; break;
         case '!': tiles[r][c] = { type: 'hidden', item: 'oneup', c, r }; break;
@@ -375,8 +399,8 @@
       if (!t || t.type !== 'ground') continue;
       t.top = !solid(c, r - 1); t.bottom = !solid(c, r + 1); t.left = !solid(c - 1, r); t.right = !solid(c + 1, r);
       t.variant = (c * 7 + r * 3) % 4;
-      if (def.theme === 'cave' || def.theme === 'mansion' || def.theme === 'nyc' || def.theme === 'dc') continue;
-      if (t.top && r === GROUND_ROW && rows[r - 1][c] === '.' && rows[r - 1][c + 1] === '.' && !pipes.some(p => c >= p.c - 1 && c <= p.c + 2) && !decor.some(d => d.kind === 'sign' && c >= d.c - 2 && c <= d.c + 3)) {
+      if (def.theme === 'cave' || def.theme === 'mansion' || def.theme === 'nyc' || def.theme === 'dc' || t.paint) continue;
+      if (t.top && r === GROUND_ROW && rows[r - 1][c] === '.' && rows[r - 1][c + 1] === '.' && !pipes.some(p => c >= p.c - 1 && c <= p.c + 2) && !decor.some(d => (d.kind === 'sign' || d.kind === 'stan' || d.kind === 'sign404' || d.kind === 'offline' || d.kind === 'gbike') && c >= d.c - 2 && c <= d.c + 4)) {
         const hv = PX.hash(c * 1.31 + 5);
         if (hv > 0.9 && rows[r - 1][c + 2] === '.' && c > 4) decor.push({ kind: 'bush', c, r, s: 0.8 + PX.hash(c) * 0.4 });
         else if (hv < 0.22) decor.push({ kind: 'flower', c, r, kind2: Math.floor(PX.hash(c * 9) * 3), dx: Math.floor(PX.hash(c * 2) * 20) });
