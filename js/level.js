@@ -139,7 +139,7 @@
     coins(19, 53, 2); coins(13, 53, 2); put(26, 56, 'h'); put(14, 56, 'h');
     put(4, 56, 'F');
     put(8, 56, 'H');
-    return { rows: L.rows(), movers, warps: [], theme: 'cave', name: 'main', time: 400, title: 'CRYSTAL CAVES' };
+    return { rows: L.rows(), movers, warps: [], theme: 'cave', name: 'main', time: 400, title: 'CRYSTAL CAVES', look: 'down' };
   }
 
   // Level 3: Sunset Shore. The ground itself rises and falls: dunes, a sea
@@ -217,7 +217,7 @@
     fill(31, 31, 1, 8, 'G');
     put(35, 8, 'F');
     put(38, 8, 'H');
-    return { rows: L.rows(), movers, warps: [], theme: 'mansion', name: 'main', time: 450, title: 'EVIL MANSION' };
+    return { rows: L.rows(), movers, warps: [], theme: 'mansion', name: 'main', time: 450, title: 'EVIL MANSION', look: 'up' };
   }
 
   // Level 5: Midtown at night. Streets with cabs, fire-escape shafts, rooftops,
@@ -501,7 +501,7 @@
         else if (hv < 0.22) decor.push({ kind: 'flower', c, r, kind2: Math.floor(PX.hash(c * 9) * 3), dx: Math.floor(PX.hash(c * 2) * 20) });
       }
     }
-    return { W, H, tiles, spawns, pipes, decor, start, flag, house, arena, rows, theme: def.theme, name: def.name, warps: def.warps, time: def.time, title: def.title };
+    return { W, H, tiles, spawns, pipes, decor, start, flag, house, arena, rows, theme: def.theme, name: def.name, warps: def.warps, time: def.time, title: def.title, look: def.look };
   }
 
   // Each stage is a main level plus any sub-areas reached through warps.

@@ -644,21 +644,35 @@
       this.updateCameraY(group);
     }
     // Vertical follow for tall levels. The camera only re-anchors when the group is
-    // standing on something (or is far outside the view), so jumps don't move the screen.
+    // standing on something (or is far outside the view), so jumps don't move the
+    // screen. It leans in the level's travel direction (level.look: 'down' or 'up')
+    // so you can see what's coming, and leans further while Down is held (or Up on
+    // an upward level) so you can scout before committing.
     updateCameraY(group, snap) {
       if (this.levelH <= VH + T) { this.cam.y = 0; return; }
+      const look = this.level.look === 'up' ? -1 : this.level.look === 'down' ? 1 : 0;
       const grounded = group.filter(p => p.onGround || p.carrier || p.inWater);
       const ref = grounded.length ? grounded : group;
       const mean = ref.reduce((s, p) => s + p.bottom, 0) / ref.length;
-      const want = Math.max(0, Math.min(this.levelH - VH, mean - VH * 0.62));
+      // anchor: cats sit at 38% from the top when heading down, 70% when heading up
+      let anchor = look > 0 ? 0.48 : look < 0 ? 0.72 : 0.62;
+      // peek: hold Down to look further down; on an upward level hold Up (jump key while standing still does not count, so use Down to look down there too)
+      const peekDown = grounded.length && group.every(p => (p.input || this.input).down && Math.abs(p.vx) < 0.5);
+      if (peekDown) anchor = 0.22;
+      this.peekT = peekDown ? Math.min(30, (this.peekT || 0) + 1) : 0;
+      if (peekDown && this.peekT < 12) anchor = look > 0 ? 0.48 : look < 0 ? 0.72 : 0.62; // short tap = crouch, not a peek
+      const want = Math.max(0, Math.min(this.levelH - VH, mean - VH * anchor));
       if (snap) { this.cam.y = want; this.camYTarget = want; return; }
       if (this.camYTarget === undefined) this.camYTarget = this.cam.y;
       const lo = group.reduce((m, p) => Math.min(m, p.y), 1e9), hi = group.reduce((m, p) => Math.max(m, p.bottom), -1e9);
       if (grounded.length && Math.abs(want - this.camYTarget) > 24) this.camYTarget = want;
-      // safety: never let a cat leave the screen
-      if (lo < this.cam.y + 40) this.camYTarget = Math.max(0, lo - 40);
-      if (hi > this.cam.y + VH - 30) this.camYTarget = Math.min(this.levelH - VH, hi - VH + 30);
-      this.cam.y += (this.camYTarget - this.cam.y) * 0.12;
+      // safety bounds: never let a cat leave the screen (a jump apex may poke past the top);
+      // when falling on a downward level keep plenty of room below
+      const below = look > 0 ? VH * 0.45 : 30;
+      if (lo < this.cam.y - 24) this.camYTarget = Math.min(this.camYTarget, lo - 24);
+      if (hi > this.cam.y + VH - below) this.camYTarget = Math.max(this.camYTarget, hi - VH + below);
+      this.camYTarget = Math.max(0, Math.min(this.levelH - VH, this.camYTarget));
+      this.cam.y += (this.camYTarget - this.cam.y) * (peekDown ? 0.06 : 0.12);
       this.cam.y = Math.max(0, Math.min(this.levelH - VH, this.cam.y));
     }
     updatePlatforms() { for (const e of this.entities) if (e.isPlatform || e.isBouncer) e.update(this); }
