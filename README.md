@@ -32,7 +32,7 @@ pipes and the flag take everyone along.
 | Enter a warp pipe | Down while standing on it |
 | Wall jump | Push into a wall while falling, then jump |
 | Pause / mute | P / M |
-| Start at a level | 1 – 6 on the title screen |
+| Start at a level | 1 – 7 on the title screen |
 | Host / join online | O / J on the title screen |
 
 ## Levels
@@ -51,9 +51,14 @@ pipes and the flag take everyone along.
    parcels from delivery drones, take a warp pipe into a data center full of blinking racks, then
    survive the "no internet" run: hop the cacti before the Chrome dino wakes up and charges, with
    Stan the T-rex looking on. Climb the office towers past the G totem to a rainbow staircase.
+7. **Winter Wonderland** — it snows the whole way. A village of lit pines and string lights, a
+   frozen pond (ice is slippery), a ski hill you climb by chairlift platforms and slide down on icy
+   steps, a cabin you drop into through the chimney for hot cocoa by the fire, an icicle cave, and
+   finally **Frosty** the snowcat on a frozen lake: pounces, slams that shake icicles loose, and
+   rolling giant snowballs you can bounce off. Foxes lob snowballs and hop away when you get close.
 
 Power-ups: fish snack (grow), ball of yarn (throw bouncing yarn balls), star (invincible),
-milk carton (1-up, hidden in invisible blocks).
+milk carton (1-up, hidden in invisible blocks), hot cocoa (grow + a moment of warmth, winter only).
 
 ## Running locally
 
@@ -62,7 +67,7 @@ Open `index.html` in a browser. That's it.
 ## Layout
 
 - `js/pixel.js` — pixel painter, sprite cache, bitmap font
-- `js/sprites.js`, `js/sprites_extra.js`, `js/sprites_boss.js`, `js/sprites_city.js`, `js/sprites_plex.js` — pixel maps and animation frames
+- `js/sprites.js`, `js/sprites_extra.js`, `js/sprites_boss.js`, `js/sprites_city.js`, `js/sprites_plex.js`, `js/sprites_snow.js` — pixel maps and animation frames
 - `js/tiles.js` — tiles, blocks, pipes, water, themed backgrounds
 - `js/level.js` — level definitions and parser
 - `js/entities.js` — player physics, enemies, items, platforms, effects

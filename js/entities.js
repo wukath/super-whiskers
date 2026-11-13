@@ -167,19 +167,21 @@
       // horizontal
       const dir = this.inputLock > 0 ? 0 : (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
       const max = this.crouch ? PHYS.crawlMax : this.inWater ? PHYS.waterMax : (inp.run ? PHYS.runMax : PHYS.walkMax);
-      const acc = this.inWater ? PHYS.waterAccel : (this.wasOnGround ? PHYS.accel : PHYS.airAccel);
+      const gt = this.wasOnGround ? game.tileAt(Math.floor(this.cx / T), Math.floor((this.bottom + 2) / T)) : null;
+      this.onIce = !!(gt && gt.paint === 'ice');
+      const acc = this.inWater ? PHYS.waterAccel : (this.wasOnGround ? (this.onIce ? 0.06 : PHYS.accel) : PHYS.airAccel);
       this.skidding = false;
       if (dir !== 0) {
-        if (this.wasOnGround && Math.sign(this.vx) === -dir && Math.abs(this.vx) > 1.5) {
+        if (this.wasOnGround && !this.onIce && Math.sign(this.vx) === -dir && Math.abs(this.vx) > 1.5) {
           this.skidding = true; this.vx += dir * PHYS.skidDecel;
           if (this.t % 4 === 0) game.add(new Dust(this.cx + Math.sign(this.vx) * 6, this.bottom - 3, Math.sign(this.vx), 2));
         } else {
           if (Math.abs(this.vx) < max || Math.sign(this.vx) !== dir) this.vx += dir * acc;
-          if (Math.abs(this.vx) > max) this.vx = Math.sign(this.vx) * Math.max(max, Math.abs(this.vx) - 0.1);
+          if (Math.abs(this.vx) > max) this.vx = Math.sign(this.vx) * Math.max(max, Math.abs(this.vx) - (this.onIce ? 0.02 : 0.1));
         }
         this.facing = dir;
       } else if (this.wasOnGround || this.inWater) {
-        const d = this.inWater ? 0.05 : PHYS.decel;
+        const d = this.inWater ? 0.05 : this.onIce ? 0.04 : PHYS.decel;
         if (Math.abs(this.vx) <= d) this.vx = 0; else this.vx -= Math.sign(this.vx) * d;
       }
 
@@ -662,6 +664,143 @@
     draw(ctx, cam) { this.drawImg(ctx, cam, S().extras.CACTUS); }
   }
 
+  // ---------------- Winter enemies ----------------
+  // Fox: keeps its distance and lobs snowballs; hops back when you get close.
+  class Fox extends Enemy {
+    constructor(x, y) { super(x, y, 24, 24); this.facing = -1; this.points = 300; this.throwT = 50 + Math.floor(Math.random() * 40); this.throwing = 0; }
+    behave(game) {
+      this.vy = Math.min(this.vy + 0.6, 10);
+      const t = game.alivePlayers().sort((a, b) => Math.abs(a.cx - this.cx) - Math.abs(b.cx - this.cx))[0];
+      if (t) this.facing = t.cx < this.cx ? -1 : 1;
+      this.vx = 0;
+      if (t && this.onGround && Math.abs(t.cx - this.cx) < 70 && !(this.hop > 0)) { this.vy = -7; this.vx = -this.facing * 2.4; this.hop = 30; }
+      if (this.hop > 0) { this.hop--; if (!this.onGround) this.vx = -this.facing * 2.4; }
+      this.moveAndCollide(game);
+      if (this.hitWall) this.vx = 0;
+      if (--this.throwT <= 0) {
+        this.throwT = 130;
+        if (t && Math.abs(t.cx - this.cx) < 340) { const d = t.cx - this.cx; game.add(new Snowball(this.cx + this.facing * 10, this.y + 2, Math.max(-4.5, Math.min(4.5, d / 55)), -6.5)); this.throwing = 16; AUDIO.SFX.yarn(); }
+      }
+      if (this.throwing > 0) this.throwing--;
+    }
+    stomp(game, player) { this.flipKill(game, player.facing); AUDIO.SFX.stomp(); }
+    touch(game, player) { player.hurt(game); }
+    draw(ctx, cam) { const ex = S().extras; this.drawImg(ctx, cam, (this.throwing > 6 || this.throwT > 110) ? ex.FOX_THROW : ex.FOX); }
+  }
+  class Snowball extends Enemy {
+    constructor(x, y, vx, vy, big) { super(x, y, big ? 16 : 10, big ? 16 : 10); this.vx = vx; this.vy = vy; this.active = true; this.points = 50; this.life = 200; this.big = !!big; this.bounces = big ? 2 : 0; }
+    behave(game) {
+      this.vy = Math.min(this.vy + 0.32, 9); this.x += this.vx; this.y += this.vy;
+      const c = Math.floor(this.cx / T), r = Math.floor((this.y + this.h) / T);
+      if (this.vy > 0 && game.isSolid(c, r)) {
+        if (this.bounces-- > 0) { this.y = r * T - this.h; this.vy = -6; }
+        else { this.remove = true; game.add(new Puff(this.cx, this.y + 5)); }
+      }
+      if (--this.life <= 0 || game.isSolid(Math.floor((this.vx < 0 ? this.x : this.x + this.w) / T), Math.floor(this.cy / T))) { this.remove = true; game.add(new Puff(this.cx, this.y + 5)); }
+    }
+    get cy() { return this.y + this.h / 2; }
+    stomp(game, player) { if (this.big) { this.flipKill(game, player.facing); player.bounce(); } else player.hurt(game); }
+    touch(game, player) { player.hurt(game); }
+    flipKill(game, dir) { this.remove = true; game.add(new Puff(this.cx, this.y + 5)); game.score(50, this.x, this.y); }
+    draw(ctx, cam) { const cv = (this.big ? S().extras.BIGSNOWBALL : S().extras.SNOWBALL).r; ctx.save(); ctx.translate(Math.round(this.cx - cam.x), Math.round(this.cy - cam.y)); ctx.rotate(this.t * 0.2 * Math.sign(this.vx || 1)); ctx.drawImage(cv, -cv.width / 2, -cv.height / 2); ctx.restore(); }
+  }
+  // Icicle: hangs from a ceiling, drops when a cat walks under, shatters on the ground.
+  class Icicle extends Enemy {
+    constructor(x, y) { super(x, y, 8, 20); this.active = true; this.points = 100; this.state = 'hang'; this.y0 = y; this.wobble = 0; }
+    behave(game) {
+      if (this.state === 'hang') {
+        const t = game.alivePlayers().find(p => Math.abs(p.cx - this.cx) < 26 && p.y > this.y);
+        if (t) { this.state = 'wobble'; this.wobble = 20; }
+      } else if (this.state === 'wobble') { if (--this.wobble <= 0) this.state = 'fall'; }
+      else {
+        this.vy = Math.min(this.vy + 0.5, 11); this.y += this.vy;
+        const c = Math.floor(this.cx / T), r = Math.floor((this.y + this.h) / T);
+        if (game.isSolid(c, r)) { this.remove = true; game.add(new Poof(this.cx, this.y + this.h - 4, 0.7)); AUDIO.SFX.brick(); if (this.respawn !== false) game.add(new IcicleRespawn(this.x, this.y0)); }
+      }
+    }
+    stomp(game, player) { player.hurt(game); }
+    touch(game, player) { if (this.state === 'fall') player.hurt(game); }
+    flipKill(game, dir) { this.remove = true; game.add(new Poof(this.cx, this.y + 8, 0.7)); game.score(100, this.x, this.y); }
+    draw(ctx, cam) { const cv = S().extras.ICICLE.r; const ox = this.state === 'wobble' ? ((this.wobble >> 1) & 1 ? 1 : -1) : 0; ctx.drawImage(cv, Math.round(this.x - 1 + ox - cam.x), Math.round(this.y - cam.y)); }
+  }
+  class IcicleRespawn extends Entity {
+    constructor(x, y) { super(x, y, 0, 0); this.life = 240; this.active = true; }
+    update(game) { if (--this.life <= 0) { this.remove = true; game.add(new Icicle(this.x, this.y)); } }
+    draw() { }
+  }
+  // ---------------- Boss: Frosty the snowcat ----------------
+  // Pounces across the arena, slams to shake icicles loose, and rolls giant snowballs.
+  class SnowCat extends Enemy {
+    constructor(x, y) {
+      super(x, y, 60, 44); this.isBoss = true; this.active = true; this.hp = 3; this.maxHp = 3; this.state = 'sleep'; this.stateT = 0; this.hurtT = 0; this.facing = -1; this.points = 6000; this.nextMove = 'pounce'; this.name = 'FROSTY';
+    }
+    get rage() { return (this.maxHp - this.hp) / this.maxHp; }
+    behave(game) {
+      this.stateT++;
+      if (this.hurtT > 0) this.hurtT--;
+      const target = game.alivePlayers().sort((a, b) => Math.abs(a.cx - this.cx) - Math.abs(b.cx - this.cx))[0];
+      this.vy = Math.min(this.vy + 0.6, 12);
+      if (this.state === 'sleep') { this.vx = 0; this.moveAndCollide(game); return; }
+      if (this.state === 'idle') {
+        this.vx = 0; if (target) this.facing = target.cx < this.cx ? -1 : 1;
+        if (this.stateT > 50 - this.rage * 25) {
+          this.state = this.nextMove; this.stateT = 0;
+          this.nextMove = this.nextMove === 'pounce' ? 'roll' : this.nextMove === 'roll' ? 'slam' : 'pounce';
+          if (this.state === 'pounce') { this.vy = -11; this.vx = this.facing * (4.5 + this.rage * 2); AUDIO.SFX.dash(); }
+          else if (this.state === 'slam') { this.vy = -14; this.vx = this.facing * 1.5; AUDIO.SFX.poundStart(); }
+          else { AUDIO.SFX.yarn(); game.add(new Snowball(this.cx + this.facing * 30, this.bottom - 18, this.facing * (3.2 + this.rage), -2, true)); if (this.rage > 0.5) game.add(new Snowball(this.cx + this.facing * 30, this.bottom - 30, this.facing * 2.2, -6, true)); this.state = 'idle'; this.stateT = 20; }
+        }
+      } else if (this.state === 'pounce') {
+        if (this.onGround && this.stateT > 6) { this.state = 'idle'; this.stateT = 0; this.vx = 0; game.shake(5, 2); game.add(new Dust(this.cx, this.bottom - 2, 0, 3)); }
+      } else if (this.state === 'slam') {
+        if (this.onGround && this.stateT > 6) {
+          this.state = 'idle'; this.stateT = 0; this.vx = 0; game.shake(14, 5); AUDIO.SFX.pound();
+          // shake icicles loose from the arena ceiling
+          for (const e of game.entities) if (e instanceof Icicle && e.state === 'hang' && Math.abs(e.cx - this.cx) < 400) { e.state = 'wobble'; e.wobble = 10 + Math.floor(Math.random() * 30); }
+          for (let i = 0; i < 3; i++) { game.add(new Dust(this.cx - 20 - i * 8, this.bottom - 2, -1, 3)); game.add(new Dust(this.cx + 20 + i * 8, this.bottom - 2, 1, 3)); }
+        }
+      } else if (this.state === 'stun' || this.state === 'hurt') {
+        this.vx = 0;
+        if (this.stateT > (this.state === 'stun' ? 45 : 55)) { this.state = 'idle'; this.stateT = 0; }
+      }
+      this.moveAndCollide(game);
+      if (this.state === 'pounce' && this.hitWall) { this.state = 'stun'; this.stateT = 0; this.vx = 0; game.shake(8, 3); AUDIO.SFX.bump(); game.add(new Poof(this.cx + this.facing * 26, this.y + 10, 0.8)); }
+    }
+    damage(game, amt, dir) {
+      if (this.hurtT > 0 || this.state === 'dead' || this.state === 'sleep') return false;
+      this.hp = Math.max(0, this.hp - amt); this.hurtT = 60; this.state = 'hurt'; this.stateT = 0; this.vx = 0;
+      game.shake(8, 3); AUDIO.SFX.hurt(); game.add(new Poof(this.cx, this.y + 8, 1.4)); game.score(500, this.cx - 12, this.y - 10);
+      if (this.hp <= 0) this.die(game, dir);
+      return true;
+    }
+    die(game, dir) {
+      this.state = 'dead'; this.flipDead = true; this.vy = -9; this.vx = (dir || 1) * 1.2; this.hurtT = 0;
+      game.score(6000, this.cx - 20, this.y - 20); game.shake(24, 6); AUDIO.SFX.clear();
+      for (let i = 0; i < 6; i++) game.add(new Poof(this.x + 8 + i * 10, this.y + 8 + (i % 2) * 20, 1.5));
+      game.onBossDefeated(this);
+    }
+    stomp(game, player) { if (this.damage(game, 1, player.facing)) { player.vy = -12; player.jumpHeld = true; player.squash(0.7, 1.35); } else player.bounce(); }
+    flipKill(game, dir) { this.damage(game, 0.5, dir); }
+    touch(game, player) {
+      if (this.state === 'dead') return;
+      if (player.dashing) { this.damage(game, 0.5, player.dashDir); player.dashTimer = 0; player.vx = -player.dashDir * 5; player.vy = -5; player.hurtTimer = Math.max(player.hurtTimer, 20); return; }
+      player.hurt(game);
+    }
+    draw(ctx, cam) {
+      const ex = S().extras;
+      if (this.hurtT > 0 && this.state !== 'dead' && (Math.floor(this.t / 3) % 2) === 0) return;
+      let img = ex.SNOWCAT_IDLE;
+      if (this.state === 'pounce' || this.state === 'slam') img = ex.SNOWCAT_CHARGE;
+      else if (this.state === 'hurt' || this.state === 'stun' || this.state === 'dead') img = ex.SNOWCAT_HURT;
+      const sh = TILES.shadow(28);
+      if (this.onGround && !this.flipDead) ctx.drawImage(sh, Math.round(this.cx - 28 - cam.x), Math.round(this.bottom - 2 - cam.y));
+      const bob = (this.state === 'sleep' || this.state === 'idle') ? Math.round(Math.sin(this.t * 0.1)) : 0;
+      this.drawImg(ctx, cam, img, 0, bob);
+      if (this.state === 'sleep' && (this.t % 90) < 45) { ctx.fillStyle = '#ffffff'; const k = (this.t % 45) >> 3; ctx.fillRect(Math.round(this.cx - 20 - cam.x), Math.round(this.y - 10 - k - cam.y), 3, 1); ctx.fillRect(Math.round(this.cx - 18 - cam.x), Math.round(this.y - 8 - k - cam.y), 1, 1); ctx.fillRect(Math.round(this.cx - 20 - cam.x), Math.round(this.y - 6 - k - cam.y), 3, 1); }
+      if (this.state === 'stun') { ctx.fillStyle = '#bfeaff'; for (let i = 0; i < 3; i++) { const a = this.t * 0.15 + i * 2.1; ctx.fillRect(Math.round(this.cx + Math.cos(a) * 20 - cam.x), Math.round(this.y - 8 + Math.sin(a) * 4 - cam.y), 3, 3); } }
+    }
+  }
+
   // ---------------- Boss: Duke the bulldog ----------------
   class Boss extends Enemy {
     constructor(x, y) {
@@ -855,6 +994,14 @@
     collect(game, player) { this.remove = true; game.lives++; AUDIO.SFX.oneup(); game.add(new ScorePop(this.x, this.y - 10, '1UP')); game.add(new Sparkle(this.cx, this.y, '#8fffc0')); }
     img() { const m = S().milk; return { r: m, l: m }; }
   }
+  // Hot cocoa: warms you up (grow), and gives a short star-like warmth glow.
+  class CocoaItem extends Item {
+    constructor(x, y) { super(x, y, 18, 20, 'cocoa'); }
+    collect(game, player) { this.remove = true; player.grow(game, player.form === 'small' ? 'big' : 'yarn'); player.hurtTimer = Math.max(player.hurtTimer, 90); game.score(500, this.x, this.y); game.add(new Sparkle(this.cx, this.y, '#ffb070')); }
+    img() { return S().extras.COCOA; }
+    draw(ctx, cam) { const bob = this.emerge > 0 ? 0 : Math.round(Math.sin(this.t * 0.1) * 2); ctx.save(); ctx.translate(0, bob); super.draw(ctx, cam); ctx.restore(); if (this.emerge <= 0) { ctx.globalAlpha = 0.5; ctx.fillStyle = '#ffffff'; for (let i = 0; i < 2; i++) { const k = (this.t + i * 20) % 40; ctx.fillRect(Math.round(this.cx - 4 + i * 5 + Math.sin(k * 0.3) * 2 - cam.x), Math.round(this.y - 4 - k * 0.4 - cam.y), 2, 2); } ctx.globalAlpha = 1; } }
+  }
+
   class CoinPickup extends Entity {
     constructor(x, y) { super(x, y, 12, 20); this.isCoin = true; }
     update(game) { this.t++; }
@@ -965,6 +1112,11 @@
   Parcel.prototype.kind = 'parcel'; Parcel.prototype.netFields = [];
   Dino.prototype.kind = 'dino'; Dino.prototype.netFields = ['flipDead', 'state', 'onGround'];
   Cactus.prototype.kind = 'cactus'; Cactus.prototype.netFields = ['flipDead'];
+  Fox.prototype.kind = 'fox'; Fox.prototype.netFields = ['flipDead', 'throwing', 'throwT'];
+  Snowball.prototype.kind = 'snowball'; Snowball.prototype.netFields = ['big', 'w', 'h'];
+  Icicle.prototype.kind = 'icicle'; Icicle.prototype.netFields = ['state', 'wobble'];
+  CocoaItem.prototype.kind = 'cocoa';
+  SnowCat.prototype.kind = 'snowcat'; SnowCat.prototype.netFields = ['state', 'hp', 'maxHp', 'hurtT', 'flipDead', 'onGround'];
   Boss.prototype.kind = 'boss'; Boss.prototype.netFields = ['state', 'hp', 'maxHp', 'hurtT', 'flipDead', 'onGround'];
   Bone.prototype.kind = 'bone'; Bone.prototype.netFields = ['flipDead'];
   Platform.prototype.netFields = ['active', 'kind', 'dir'];
@@ -991,6 +1143,11 @@
       case 'vent': return new Vent({ c: 0, r: 0 });
       case 'train': return new Platform({ c: 0, r: 0, type: 'train' });
       case 'bone': return new Bone(x, y, 1);
+      case 'fox': return new Fox(x, y);
+      case 'snowball': return new Snowball(x, y, 0, 0);
+      case 'icicle': { const i = new Icicle(x, y); i.respawn = false; return i; }
+      case 'cocoa': return new CocoaItem(x, y);
+      case 'snowcat': return new SnowCat(x, y);
       case 'droid': return new Droid(x, y);
       case 'drone': return new Drone(x, y);
       case 'parcel': return new Parcel(x, y);
@@ -1022,5 +1179,5 @@
     return null;
   }
 
-  window.ENT = { makeGhost, fromFx, PHYS, Entity, Player, Mouse, Hedgehog, Fish, Boss, Bone, Rat, Pigeon, Raccoon, Lid, Taxi, TaxiSpawner, Vent, Droid, Drone, Parcel, Dino, Cactus, Platform, Bouncer, FishItem, YarnItem, StarItem, OneUp, CoinPickup, CoinPop, YarnBall, Puff, Poof, Dust, Sparkle, Afterimage, Fragment, Splash, ScorePop };
+  window.ENT = { makeGhost, fromFx, PHYS, Entity, Player, Mouse, Hedgehog, Fish, Boss, Bone, Rat, Pigeon, Raccoon, Lid, Taxi, TaxiSpawner, Vent, Droid, Drone, Parcel, Dino, Cactus, Fox, Snowball, Icicle, CocoaItem, SnowCat, Platform, Bouncer, FishItem, YarnItem, StarItem, OneUp, CoinPickup, CoinPop, YarnBall, Puff, Poof, Dust, Sparkle, Afterimage, Fragment, Splash, ScorePop };
 })();

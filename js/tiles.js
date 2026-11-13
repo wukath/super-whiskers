@@ -45,6 +45,22 @@
     plex2: { dirt: ['#fdd663', '#fbbc04', '#f9ab00', '#f29900'], grass: ['#feefc3', '#fde293', '#fdd663', '#fbbc04'], grassLine: '#e37400', dark: '#b06000', mid: '#e37400', blades: [], noBlades: true, pebble: ['#feefc3', '#b06000', '#f29900'], flat: true },
     plex3: { dirt: ['#5bb974', '#34a853', '#1e8e3e', '#188038'], grass: ['#ceead6', '#a8dab5', '#81c995', '#34a853'], grassLine: '#188038', dark: '#0d652d', mid: '#188038', blades: [], noBlades: true, pebble: ['#ceead6', '#0d652d', '#1e8e3e'], flat: true },
     plex4: { dirt: ['#e8f0fe', '#d2e3fc', '#aecbfa', '#8ab4f8'], grass: ['#ffffff', '#f1f3f4', '#e8eaed', '#dadce0'], grassLine: '#9aa0a6', dark: '#5f6368', mid: '#9aa0a6', blades: [], noBlades: true, pebble: ['#ffffff', '#5f6368', '#aecbfa'], flat: true },
+    // snow: packed snow over frozen earth; ice is slick (handled in physics); cabin is log walls
+    snow: {
+      dirt: ['#b9c6dc', '#95a6c4', '#7384a4', '#55657f'], grass: ['#ffffff', '#f2f7ff', '#dde8f8', '#c3d3ec'],
+      grassLine: '#a9bbd8', dark: '#44536b', mid: '#55657f', blades: ['#ffffff', '#eaf2ff', '#d0deF4'], noBlades: true,
+      pebble: ['#ffffff', '#55657f', '#95a6c4'],
+    },
+    ice: {
+      dirt: ['#bfeaff', '#8fd3ff', '#5fb8f5', '#3a93d6'], grass: ['#ffffff', '#e6f7ff', '#bfeaff', '#8fd3ff'],
+      grassLine: '#5fb8f5', dark: '#2a6ea8', mid: '#3a93d6', blades: [], noBlades: true, flat: true,
+      pebble: ['#ffffff', '#2a6ea8', '#8fd3ff'],
+    },
+    cabin: {
+      dirt: ['#b07a4a', '#8c5a32', '#6a4024', '#4a2c18'], grass: ['#d8a06a', '#b07a4a', '#8c5a32', '#6a4024'],
+      grassLine: '#4a2c18', dark: '#2e1a0e', mid: '#4a2c18', blades: [], noBlades: true, flat: true,
+      pebble: ['#d8a06a', '#2e1a0e', '#8c5a32'],
+    },
     dc: {
       dirt: ['#4a5068', '#3a4058', '#2c3146', '#1e2234'], grass: ['#aeb8d0', '#8a96b4', '#66708c', '#464e68'],
       grassLine: '#2c3146', dark: '#141828', mid: '#1e2234', blades: ['#aeb8d0', '#8a96b4', '#66708c'], noBlades: true,
@@ -109,6 +125,9 @@
         if (theme === 'plex4') { for (let j = 6; j < T - 4; j += 10) for (let i = 4; i < T - 4; i += 10) { p.rect(i, GROUND_OVER + j, 7, 6, hash(ox + i + j * 3) > 0.35 ? '#fff8d6' : '#aecbfa'); p.rect(i, GROUND_OVER + j, 7, 1, '#ffffff'); } }
         else if (!top) { p.rect(0, GROUND_OVER + 15, T, 1, th.dark); p.rect(16 * ((variant) % 2), GROUND_OVER, 1, 16, th.dark); p.rect(16 * ((variant + 1) % 2), GROUND_OVER + 16, 1, 16, th.dark); }
       }
+      if (theme === 'snow' && top) { for (let i = 0; i < T; i += 5) if (hash(ox + i) > 0.5) p.px(i, GROUND_OVER + 1 + (i % 3), '#ffffff'); }
+      if (theme === 'ice') { for (let k = 0; k < 3; k++) { const gx = 4 + Math.floor(hash(variant * 3.1 + k) * 20), gy = 8 + Math.floor(hash(variant + k * 2) * 18); p.alpha(0.7, () => { p.px(gx, GROUND_OVER + gy, '#ffffff'); p.px(gx + 1, GROUND_OVER + gy + 1, '#ffffff'); p.px(gx + 2, GROUND_OVER + gy + 2, '#ffffff'); }); } }
+      if (theme === 'cabin') { for (let j = 0; j < T; j += 8) { p.rect(0, GROUND_OVER + j, T, 1, '#4a2c18'); p.rect(0, GROUND_OVER + j + 1, T, 1, '#d8a06a'); p.rect(0, GROUND_OVER + j + 6, T, 1, '#6a4024'); } p.rect(14 + (variant % 2) * 8, GROUND_OVER + 2, 1, 5, '#6a4024'); }
       if (theme === 'nyc') for (let j = (top ? 12 : 0); j < T; j += 6) { p.rect(0, GROUND_OVER + j, T, 1, '#5a3028'); for (let i = ((j / 6) % 2) * 8; i < T; i += 16) p.rect(i, GROUND_OVER + j, 1, 6, '#5a3028'); }
       if (theme === 'nycroad' && top) { p.rect(0, GROUND_OVER + 7, T, 1, '#f2c84a'); if (variant % 2 === 0) p.rect(4, GROUND_OVER + 20, 18, 2, '#e8e8d0'); }
       // data center: raised floor tiles with a status LED on the top edge
@@ -238,6 +257,11 @@
       // magnifying glass
       p.rect(50, 5, 5, 1, '#4285f4'); p.rect(50, 10, 5, 1, '#4285f4'); p.rect(49, 6, 1, 4, '#4285f4'); p.rect(55, 6, 1, 4, '#4285f4'); p.rect(55, 11, 2, 1, '#4285f4'); p.rect(57, 12, 2, 1, '#4285f4');
     }));
+    if (theme === 'snow' || theme === 'cabin') return memo('lift' + theme, () => render(64, 16, p => {
+      p.rect(0, 2, 64, 14, '#2a6ea8'); p.rect(1, 3, 62, 12, '#8fd3ff'); p.rect(1, 3, 62, 3, '#ffffff'); p.rect(1, 6, 62, 2, '#e6f7ff'); p.rect(1, 12, 62, 3, '#5fb8f5');
+      for (let x = 6; x < 64; x += 14) { p.rect(x, 8, 1, 3, '#ffffff'); p.rect(x + 1, 9, 1, 3, '#ffffff'); }
+      for (let x = 2; x < 64; x += 9) { p.rect(x, 0, 4, 3, '#ffffff'); p.rect(x + 1, -1, 2, 2, '#ffffff'); }
+    }));
     if (theme === 'mansion' || theme === 'cave') return memo('lift' + theme, () => render(64, 16, p => {
       const wood = theme === 'mansion' ? ['#8a5a3a', '#6a4028', '#4a2c1c', '#2a1810'] : ['#7a7490', '#5c566e', '#443e52', '#2a2636'];
       p.rect(0, 3, 64, 12, wood[3]); p.rect(1, 4, 62, 10, wood[1]); p.rect(1, 4, 62, 2, wood[0]); p.rect(1, 12, 62, 2, wood[2]);
@@ -327,6 +351,24 @@
         }
         x += bw + (far ? 2 : 4); k++;
       }
+    }));
+  }
+  // Cabin interior: log walls, a rug, a wreath, string lights and a window onto the snow.
+  function cabinSky(w, h) {
+    return memo('cabinsky', () => render(w, h, p => {
+      for (let y = 0; y < h; y += 12) { p.rect(0, y, w, 12, (y / 12) % 2 ? '#a06a3e' : '#96623a'); p.rect(0, y, w, 1, '#c88a56'); p.rect(0, y + 10, w, 2, '#6a4024'); }
+      for (let x = 0; x < w; x += 160) p.rect(x + 30, 0, 2, h, '#6a4024');
+      // window with snow outside
+      p.rect(380, 70, 90, 70, '#4a2c18'); p.rect(385, 75, 80, 60, '#9fb6dd'); p.rect(385, 75, 80, 20, '#7f98c8'); p.rect(385, 120, 80, 15, '#ffffff'); p.rect(424, 75, 2, 60, '#4a2c18'); p.rect(385, 104, 80, 2, '#4a2c18');
+      for (let k = 0; k < 20; k++) p.px(388 + Math.floor(hash(k * 3.3) * 74), 78 + Math.floor(hash(k * 7.1) * 50), '#ffffff');
+      // wreath
+      p.disc(150, 100, 22, '#1e6a36'); p.disc(150, 100, 12, '#96623a'); for (let k = 0; k < 10; k++) { const a = k * 0.63; p.px(150 + Math.round(Math.cos(a) * 17), 100 + Math.round(Math.sin(a) * 17), k % 2 ? '#ff3b3b' : '#ffd23f'); } p.rect(144, 118, 12, 6, '#d9343c'); p.rect(148, 112, 4, 6, '#d9343c');
+      // string lights along the top
+      for (let x = 10; x < w; x += 18) { p.rect(x, 20 + (x / 18 % 2) * 4, 18, 1, '#2a1a10'); const c = ['#ff3b3b', '#ffd23f', '#4aa3ff', '#4dff88'][(x / 18) % 4 | 0]; p.rect(x + 8, 21 + (x / 18 % 2) * 4, 3, 4, c); p.alpha(0.25, () => p.disc(x + 9, 23 + (x / 18 % 2) * 4, 6, c)); }
+      // shelf with mugs
+      p.rect(520, 150, 100, 4, '#4a2c18'); for (let x = 530; x < 610; x += 22) { p.rect(x, 138, 12, 12, x % 44 ? '#e04848' : '#4aa3ff'); p.rect(x + 12, 141, 3, 6, x % 44 ? '#e04848' : '#4aa3ff'); }
+      // floor rug
+      p.rect(0, 240, w, 48, '#6a4024'); p.rect(60, 250, 300, 36, '#b23a3a'); p.rect(66, 256, 288, 24, '#d9545a'); for (let x = 70; x < 350; x += 12) p.rect(x, 264, 6, 8, '#f0c060');
     }));
   }
   // Data center hall: rows of server racks with blinking LEDs and cable trays.
@@ -437,6 +479,12 @@
       sky: [[0, '#5a4a9e'], [0.35, '#c86a8e'], [0.65, '#ff9a6a'], [0.88, '#ffcf8a'], [1, '#fff0c0']], haze: 'rgba(255,230,180,0.35)', sun: { x: 470, y: 150, r: 34, cols: ['#ffd0a0', '#ff9a4a', '#ffb060', '#ffd080', '#fff0b0', '#ff8a3a'] },
       cloud: ['#fff4f2', '#ffdce0', '#ffbccc', '#e894ac'],
       hillA: ['#ffe9b0', '#f2cf80', '#d9ad5c', '#b58a40'], hillB: ['#fff0c4', '#f7d994', '#e0ba6a', '#c0964a'], rimA: '#c89a4a', rimB: '#d4a858', dot: '#b58a40',
+    },
+    // snow: dim overcast afternoon, snowy pine hills
+    snow: {
+      sky: [[0, '#5a6fa8'], [0.45, '#8fa3d0'], [0.8, '#c9d6ee'], [1, '#e8eef9']], haze: 'rgba(255,255,255,0.35)', sun: { x: 540, y: 70, r: 16, cols: ['#ffffff', '#f4f6ff', '#ffffff', '#ffffff', '#ffffff', '#e8ecff'] },
+      cloud: ['#f4f6fb', '#e4e9f4', '#cdd6e8', '#b0bdd6'],
+      hillA: ['#ffffff', '#e8eef9', '#c9d6ee', '#a4b6d8'], hillB: ['#ffffff', '#f0f4fb', '#d6e0f2', '#b4c4e0'], rimA: '#ffffff', rimB: '#ffffff', dot: '#2f6a46',
     },
     // plex: bright California noon, rolling green hills
     plex: {
@@ -598,6 +646,19 @@
       p.rect(34, 24, 20, 8, '#4285f4'); p.rect(34, 24, 20, 1, '#6fa3ff'); p.rect(34, 31, 20, 1, '#2a63c4');
     }));
   }
+  // A string of holiday lights, w px wide, hung in a shallow swag.
+  function lights(w) {
+    return memo('lights' + w, () => render(w, 16, p => {
+      const cols = ['#ff3b3b', '#ffd23f', '#4aa3ff', '#4dff88', '#ff8ad8'];
+      for (let x = 0; x < w; x++) { const y = 2 + Math.round(Math.sin(x / w * Math.PI) * 5); p.px(x, y, '#1a2a1a'); if (x % 14 === 7) { const c = cols[(x / 14 | 0) % 5]; p.rect(x - 1, y + 1, 3, 5, c); p.px(x, y + 1, '#ffffff'); p.alpha(0.3, () => p.disc(x, y + 3, 6, c)); } }
+    }));
+  }
+  // Falling snow: a tiling 320x320 layer with two sizes of flakes; scrolled in render.
+  function snowLayer(k) {
+    return memo('snowlayer' + k, () => render(320, 320, p => {
+      for (let i = 0; i < 70; i++) { const x = Math.floor(hash(i * 4.7 + k * 99) * 320), y = Math.floor(hash(i * 9.1 + k * 7) * 320); if (k === 0) { p.rect(x, y, 2, 2, '#ffffff'); } else p.alpha(0.6, () => p.px(x, y, '#ffffff')); }
+    }));
+  }
   // Freestanding boards: the "404 NOT FOUND" sign and the offline dino banner.
   function plexBoard(kind) {
     return memo('board' + kind, () => render(96, 44, p => {
@@ -613,5 +674,5 @@
     }));
   }
 
-  window.TILES = { T, GROUND_OVER, THEMES, ground, crack, gate, lift, log, caveSky, mansionSky, citySky, dcSky, skyline, questionBlock, usedBlock, brick, pipe, waterBack, waterFront, sky, clouds, hills, campus, bush, flower, lily, pole, shadow, plexSign, gTotem, plexQuestion, plexUsed, plexBrick, plexBoard, GCOLS };
+  window.TILES = { T, GROUND_OVER, THEMES, ground, crack, gate, lift, log, caveSky, mansionSky, citySky, dcSky, skyline, questionBlock, usedBlock, brick, pipe, waterBack, waterFront, sky, clouds, hills, campus, bush, flower, lily, pole, shadow, plexSign, gTotem, plexQuestion, plexUsed, plexBrick, plexBoard, GCOLS, cabinSky, lights, snowLayer };
 })();

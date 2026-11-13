@@ -260,6 +260,11 @@
     if (sb) { const cv = spriteFromMap(sb.rows, sb.pal); extras[n] = { l: cv, r: flipH(cv), w: sb.w, h: sb.h }; }
     else { const cv = render(24, 24, p => { p.rect(0, 0, 24, 24, '#ff00ff'); p.rect(4, 4, 16, 16, '#000000'); }); extras[n] = { l: cv, r: cv, w: 24, h: 24 }; }
   }
+  for (const n of ['FOX', 'FOX_THROW', 'SNOWBALL', 'BIGSNOWBALL', 'ICICLE', 'SNOWCAT_IDLE', 'SNOWCAT_CHARGE', 'SNOWCAT_HURT', 'COCOA', 'PINE', 'SNOWMAN', 'CABIN', 'FIRE']) {
+    const sb = window.SPR_SNOW && window.SPR_SNOW[n];
+    if (sb) { const cv = spriteFromMap(sb.rows, sb.pal); extras[n] = { l: cv, r: flipH(cv), w: sb.w, h: sb.h }; }
+    else { const cv = render(24, 24, p => { p.rect(0, 0, 24, 24, '#ff00ff'); p.rect(4, 4, 16, 16, '#000000'); }); extras[n] = { l: cv, r: cv, w: 24, h: 24 }; }
+  }
   for (const n of ['BOSS', 'BOSS_WALK', 'BOSS_HURT', 'BOSS_CHARGE', 'BONE', 'CANDLE', 'PORTRAIT']) {
     const sb = window.SPR_BOSS && window.SPR_BOSS[n];
     if (sb) { const cv = spriteFromMap(sb.rows, sb.pal); extras[n] = { l: cv, r: flipH(cv), w: sb.w, h: sb.h }; }

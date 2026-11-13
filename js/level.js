@@ -8,6 +8,8 @@
 //   F  flagpole base H  house (left edge) G  gate (opens when the boss falls)
 //   Z  boss spawn    A  arena entrance (gate closes here when the fight starts)
 //   r  rat           g  pigeon           k  raccoon
+//   d  bugdroid      D  drone            n  dino            c  cactus
+//   x  fox           i  icicle (hangs from the tile above)   Y  snowcat boss
 //
 // Moving platforms and warps are listed separately since they carry ranges.
 (function () {
@@ -321,6 +323,90 @@
     return { rows: L.rows(), paint: L.paint, movers, warps, theme: 'plex', name: 'main', time: 450, title: 'THE GOOGLEPLEX' };
   }
 
+  // Level 7: Winter Wonderland. Snow falls the whole way. A village with lit
+  // pines and a snowman, a ski hill of icy steps and jumps, a cozy cabin with
+  // cocoa (entered through its chimney), an icicle cave, then Frosty the snowcat.
+  function buildLevel7() {
+    const W = 240, L = grid(W);
+    const { put, row, fill, pit, pipe, platform, coins, block } = L;
+    const movers = [], warps = [];
+    const ice = (c0, c1, r) => { for (let c = c0; c <= c1; c++) L.paint[c + ',' + r] = 'ice'; };
+    for (let c = 0; c < W; c++) for (let r = GROUND_ROW; r < ROWS; r++) put(c, r, '#');
+    put(3, 8, '@');
+    // village: pines with lights, a snowman, string lights between posts
+    movers.push({ type: 'decor', kind: 'pine', c: 7, r: 8 }, { type: 'decor', kind: 'snowman', c: 12, r: 8 }, { type: 'decor', kind: 'lights', c: 6, r: 3, len: 10 });
+    put(10, 5, '?'); row(14, 5, 'B?MB'); put(18, 8, 'x');
+    movers.push({ type: 'decor', kind: 'pine', c: 21, r: 8 }, { type: 'decor', kind: 'lights', c: 20, r: 2, len: 12 });
+    put(24, 8, '^'); coins(23, 2, 5); put(27, 2, '!');
+    // frozen pond: ice is slippery; foxes on the far bank
+    ice(30, 44, GROUND_ROW);
+    coins(32, 6, 4, 3); put(37, 5, '?'); put(46, 8, 'x'); put(50, 8, 'x');
+    movers.push({ type: 'decor', kind: 'pine', c: 53, r: 8 });
+    // ski hill: ride the lift side up (platforms), then slide down icy steps with gaps to jump
+    platform(56, 7, 2); platform(60, 5, 2); platform(64, 4, 2); coins(56, 6, 2); coins(60, 4, 2); coins(64, 3, 2);
+    movers.push({ type: 'decor', kind: 'lights', c: 55, r: 0, len: 14 });
+    block(68, 73, 2, 8, 'snow'); ice(68, 73, 2); put(70, 1, 'C'); put(72, 1, 'C');
+    let c = 74;
+    for (const [len, rr] of [[4, 3], [4, 4], [5, 5], [5, 6], [6, 7], [6, 8]]) {
+      for (let k = 0; k < len; k++) for (let y = rr; y < ROWS; y++) put(c + k, y, '#');
+      ice(c, c + len - 1, rr); coins(c + 1, rr - 2, len - 2);
+      c += len; pit(c, c); c += 1;
+    }
+    put(86, 4, 'x'); put(98, 6, 'x');
+    // the big jump off the last step down to the cabin clearing
+    pit(c, c + 3); c += 4; coins(c - 4, 3, 4); put(c + 1, 8, 'x');
+    // the cabin: drop in through the chimney pipe, come out by the door pipe
+    const cab = c + 4;
+    movers.push({ type: 'decor', kind: 'cabin', c: cab, r: 8 }, { type: 'decor', kind: 'snowman', c: cab - 3, r: 8 });
+    put(cab - 2, 8, '^');
+    block(cab, cab + 5, 6, 8, 'cabin'); block(cab + 1, cab + 4, 5, 8, 'cabin');
+    pipe(cab + 4, 6, true);
+    warps.push({ from: { level: 'main', c: cab + 4, r: 3 }, to: { level: 'cabin', c: 2, r: 1, dir: 'drop' } });
+    c = cab + 8;
+    pipe(c, 2); warps.push({ from: { level: 'cabin', c: 46, r: 7 }, to: { level: 'main', c: c, r: 7, dir: 'rise' } });
+    put(c + 3, 5, 'M'); put(c + 5, 8, 'x');
+    // icicle cave: a ceiling of icicles over an icy floor
+    c += 8;
+    fill(c, c + 26, 0, 1, '#'); fill(c, c, 2, 4, '#'); fill(c + 26, c + 26, 2, 4, '#');
+    for (let k = c + 2; k <= c + 24; k += 3) put(k, 2, 'i');
+    ice(c + 1, c + 25, GROUND_ROW);
+    pit(c + 8, c + 9); pit(c + 17, c + 18); coins(c + 4, 7, 3); coins(c + 12, 6, 4); coins(c + 21, 7, 3); put(c + 14, 8, 'x');
+    movers.push({ type: 'hlift', c: c + 8, r: 7, range: 1 }, { type: 'hlift', c: c + 17, r: 6, range: 1, phase: Math.PI });
+    c += 30;
+    // pines and a last cocoa before the arena
+    movers.push({ type: 'decor', kind: 'pine', c: c, r: 8 }, { type: 'decor', kind: 'snowman', c: c + 4, r: 8 }, { type: 'decor', kind: 'lights', c: c - 1, r: 3, len: 10 });
+    row(c + 6, 5, 'B?MB'); put(c + 9, 8, 'x');
+    // boss arena: a frozen lake under an icicle ceiling
+    c += 12;
+    put(c, 8, 'A');
+    fill(c + 2, c + 30, 0, 0, '#'); for (let k = c + 4; k <= c + 28; k += 4) put(k, 1, 'i');
+    ice(c, c + 30, GROUND_ROW);
+    fill(c + 31, c + 31, 1, 8, 'G');
+    put(c + 20, 8, 'Y');
+    put(c + 38, 8, 'F');
+    movers.push({ type: 'decor', kind: 'pine', c: c + 41, r: 8 }, { type: 'decor', kind: 'lights', c: c + 40, r: 3, len: 10 });
+    put(c + 44, 8, 'H');
+    return { rows: L.rows(), paint: L.paint, movers, warps, theme: 'snow', name: 'main', time: 500, title: 'WINTER WONDERLAND' };
+  }
+
+  // Cabin interior reached from level 7: log walls, a fire, hot cocoa on the table.
+  function buildCabin() {
+    const W = 50, L = grid(W);
+    const { put, fill, pipe, coins, platform, row } = L;
+    fill(0, W - 1, GROUND_ROW, ROWS - 1, '#');
+    fill(0, 0, 0, ROWS - 1, '#'); fill(W - 1, W - 1, 0, ROWS - 1, '#');
+    fill(0, W - 1, 0, 0, '#'); put(2, 0, '.'); put(3, 0, '.');
+    const movers = [{ type: 'decor', kind: 'fire', c: 7, r: 8 }];
+    // the table with cocoa, bookshelf steps, presents (coins) under the tree
+    platform(14, 6, 3); put(15, 5, 'M');
+    platform(20, 5, 2); platform(24, 3, 2); coins(20, 4, 2); coins(24, 2, 2);
+    row(28, 2, 'B?B');
+    put(33, 8, '^'); coins(32, 2, 6); put(38, 3, 'S');
+    movers.push({ type: 'decor', kind: 'pine', c: 40, r: 8 }); coins(40, 8, 4);
+    pipe(46, 2, true);
+    return { rows: L.rows(), movers, warps: [], theme: 'cabin', name: 'cabin', time: 0 };
+  }
+
   // Data center reached from level 6: a dark server hall with coins between the racks.
   function buildDataCenter() {
     const W = 40, L = grid(W);
@@ -360,6 +446,9 @@
         case 'g': spawns.push({ type: 'pigeon', c, r }); break;
         case 'k': spawns.push({ type: 'raccoon', c, r }); break;
         case 'd': spawns.push({ type: 'droid', c, r }); break;
+        case 'x': spawns.push({ type: 'fox', c, r }); break;
+        case 'i': spawns.push({ type: 'icicle', c, r }); break;
+        case 'Y': spawns.push({ type: 'snowcat', c, r }); break;
         case 'D': spawns.push({ type: 'drone', c, r }); break;
         case 'n': spawns.push({ type: 'dino', c, r }); break;
         case 'c': spawns.push({ type: 'cactus', c, r }); break;
@@ -383,7 +472,7 @@
         case 'H': house = { c, r }; break;
       }
     }
-    for (const m of def.movers) { if (m.type === 'decor') decor.push({ kind: m.kind, c: m.c, r: m.r }); else spawns.push(Object.assign({}, m)); }
+    for (const m of def.movers) { if (m.type === 'decor') decor.push({ kind: m.kind, c: m.c, r: m.r, len: m.len }); else spawns.push(Object.assign({}, m)); }
     // water: mark depth from the surface, and note surface tiles for lilies
     for (let c = 0; c < W; c++) {
       let d = 0;
@@ -399,7 +488,7 @@
       if (!t || t.type !== 'ground') continue;
       t.top = !solid(c, r - 1); t.bottom = !solid(c, r + 1); t.left = !solid(c - 1, r); t.right = !solid(c + 1, r);
       t.variant = (c * 7 + r * 3) % 4;
-      if (def.theme === 'cave' || def.theme === 'mansion' || def.theme === 'nyc' || def.theme === 'dc' || t.paint) continue;
+      if (def.theme === 'cave' || def.theme === 'mansion' || def.theme === 'nyc' || def.theme === 'dc' || def.theme === 'cabin' || def.theme === 'snow' || t.paint) continue;
       if (t.top && r === GROUND_ROW && rows[r - 1][c] === '.' && rows[r - 1][c + 1] === '.' && !pipes.some(p => c >= p.c - 1 && c <= p.c + 2) && !decor.some(d => (d.kind === 'sign' || d.kind === 'stan' || d.kind === 'sign404' || d.kind === 'offline' || d.kind === 'gbike') && c >= d.c - 2 && c <= d.c + 4)) {
         const hv = PX.hash(c * 1.31 + 5);
         if (hv > 0.9 && rows[r - 1][c + 2] === '.' && c > 4) decor.push({ kind: 'bush', c, r, s: 0.8 + PX.hash(c) * 0.4 });
@@ -417,7 +506,8 @@
     { main: buildLevel4, extras: [] },
     { main: buildLevel5, extras: [] },
     { main: buildLevel6, extras: [buildDataCenter] },
+    { main: buildLevel7, extras: [buildCabin] },
   ];
 
-  window.LEVELS = { ROWS, GROUND_ROW, STAGES, buildLevel1, buildLevel2, buildLevel3, buildLevel4, buildLevel5, buildLevel6, buildBonus, buildDataCenter, parse };
+  window.LEVELS = { ROWS, GROUND_ROW, STAGES, buildLevel1, buildLevel2, buildLevel3, buildLevel4, buildLevel5, buildLevel6, buildLevel7, buildBonus, buildDataCenter, buildCabin, parse };
 })();
