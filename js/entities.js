@@ -576,6 +576,92 @@
     }
   }
 
+  // ---------------- Googleplex enemies ----------------
+  // Bugdroid: ambles along; the first stomp only dents it, after which it panics and sprints.
+  class Droid extends Enemy {
+    constructor(x, y) { super(x, y, 22, 24); this.vx = -0.7; this.facing = -1; this.points = 200; this.hp = 2; this.dent = 0; }
+    behave(game) {
+      this.vy = Math.min(this.vy + 0.6, 10);
+      if (this.dent > 0) this.dent--;
+      this.moveAndCollide(game, { bounce: true });
+      if (this.vx !== 0) this.facing = Math.sign(this.vx);
+    }
+    stomp(game, player) {
+      if (this.hp > 1) { this.hp = 1; this.dent = 20; this.vx = (player.cx < this.cx ? 1 : -1) * 2.6; this.h = 20; this.y += 4; game.score(100, this.x, this.y); AUDIO.SFX.bump(); game.shake(3, 1); game.add(new Dust(this.cx, this.bottom - 2, 0, 2)); return; }
+      this.squishTimer = 30; game.score(200, this.x, this.y); AUDIO.SFX.stomp(); game.shake(3, 1); game.add(new Poof(this.cx, this.bottom - 4, 0.8));
+    }
+    touch(game, player) { player.hurt(game); }
+    draw(ctx, cam) {
+      const img = S().extras.DROID;
+      if (this.squishTimer > 0) { const cv = this.facing < 0 ? img.l : img.r; ctx.save(); ctx.translate(Math.round(this.cx - cam.x), Math.round(this.bottom - cam.y)); ctx.scale(1.3, 0.4); ctx.drawImage(cv, -cv.width / 2, -cv.height); ctx.restore(); return; }
+      const bob = this.hp < 2 ? ((this.t >> 1) & 1) : ((this.t >> 3) & 1);
+      if (this.hp < 2 && !this.flipDead) { const cv = this.facing < 0 ? img.l : img.r; ctx.save(); ctx.translate(Math.round(this.cx - cam.x), Math.round(this.bottom - cam.y)); ctx.scale(1.1, 0.84); ctx.drawImage(cv, -cv.width / 2, -cv.height + bob); ctx.restore(); return; }
+      this.drawImg(ctx, cam, img, 0, -bob);
+    }
+  }
+  // Delivery drone: hovers back and forth and drops a parcel on a cat passing underneath.
+  class Drone extends Enemy {
+    constructor(x, y, range) { super(x, y, 24, 12); this.x0 = x; this.y0 = y; this.range = range || 160; this.vx = -1.0; this.facing = -1; this.points = 200; this.cool = 60; this.carrying = true; }
+    behave(game) {
+      this.x += this.vx; if (this.x < this.x0 - this.range || this.x > this.x0) this.vx = -this.vx;
+      this.y = this.y0 + Math.sin(this.t * 0.04) * 6;
+      if (this.cool > 0) this.cool--; else if (!this.carrying) { this.carrying = true; }
+      const t = game.alivePlayers().find(p => Math.abs(p.cx - this.cx) < 20 && p.y > this.y && p.y < this.y + 260);
+      if (t && this.carrying && this.cool <= 0) { this.carrying = false; this.cool = 200; game.add(new Parcel(this.cx - 6, this.y + 12)); AUDIO.SFX.bump(); }
+      this.facing = this.vx < 0 ? -1 : 1;
+    }
+    stomp(game, player) { this.flipKill(game, player.facing); AUDIO.SFX.stomp(); }
+    touch(game, player) { player.hurt(game); }
+    draw(ctx, cam) {
+      const ex = S().extras; this.drawImg(ctx, cam, (this.t & 1) ? ex.DRONE2 : ex.DRONE);
+      if (this.carrying && !this.flipDead) ctx.drawImage(ex.PARCEL.r, Math.round(this.cx - 6 - cam.x), Math.round(this.bottom - 2 - cam.y));
+    }
+  }
+  class Parcel extends Enemy {
+    constructor(x, y) { super(x, y, 12, 12); this.active = true; this.points = 50; this.life = 240; this.vy = 1; }
+    behave(game) {
+      this.vy = Math.min(this.vy + 0.35, 7); this.y += this.vy;
+      const c = Math.floor(this.cx / T), r = Math.floor((this.y + this.h) / T);
+      if (game.isSolid(c, r) || --this.life <= 0) { this.remove = true; game.add(new Puff(this.cx, this.y + 6)); AUDIO.SFX.bump(); }
+    }
+    stomp(game, player) { this.flipKill(game, player.facing); }
+    touch(game, player) { player.hurt(game); }
+    flipKill(game, dir) { this.remove = true; game.add(new Puff(this.cx, this.y + 6)); game.score(50, this.x, this.y); }
+    draw(ctx, cam) { const cv = S().extras.PARCEL.r; ctx.save(); ctx.translate(Math.round(this.cx - cam.x), Math.round(this.y + 6 - cam.y)); ctx.rotate(Math.sin(this.t * 0.15) * 0.3); ctx.drawImage(cv, -6, -6); ctx.restore(); }
+  }
+  // Chrome dino: sleeps until a cat comes close, then runs at it, hopping cacti and ledges.
+  class Dino extends Enemy {
+    constructor(x, y) { super(x, y, 22, 24); this.facing = -1; this.points = 300; this.state = 'sleep'; }
+    behave(game) {
+      this.vy = Math.min(this.vy + 0.6, 10);
+      const t = game.alivePlayers().sort((a, b) => Math.abs(a.cx - this.cx) - Math.abs(b.cx - this.cx))[0];
+      if (this.state === 'sleep') { this.vx = 0; if (t && Math.abs(t.cx - this.cx) < 260 && t.cx < this.cx) { this.state = 'run'; this.vx = -3.4; this.facing = -1; AUDIO.SFX.dash(); } }
+      else if (this.onGround) {
+        const c = Math.floor((this.vx < 0 ? this.x - 24 : this.x + this.w + 24) / T), r = Math.floor((this.bottom - 1) / T);
+        const blocked = game.isSolid(c, r) || !game.isSolid(c, r + 1) || game.entities.some(e => e.isCactus && Math.abs(e.cx - (this.cx + this.vx * 10)) < 30);
+        if (blocked) { this.vy = -10; AUDIO.SFX.jump(); }
+      }
+      this.moveAndCollide(game, { bounce: true });
+      if (this.vx !== 0) this.facing = Math.sign(this.vx);
+    }
+    stomp(game, player) { this.flipKill(game, player.facing); AUDIO.SFX.stomp(); }
+    touch(game, player) { player.hurt(game); }
+    draw(ctx, cam) {
+      const ex = S().extras;
+      const img = this.state === 'run' && this.onGround ? ((this.t >> 2) & 1 ? ex.DINO2 : ex.DINO) : ex.DINO;
+      this.drawImg(ctx, cam, img);
+      if (this.state === 'sleep' && !this.flipDead && (this.t % 90) < 45) { ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(this.cx + 10 - cam.x), Math.round(this.y - 8 - ((this.t % 45) >> 3) - cam.y), 3, 1); ctx.fillRect(Math.round(this.cx + 12 - cam.x), Math.round(this.y - 6 - ((this.t % 45) >> 3) - cam.y), 1, 1); ctx.fillRect(Math.round(this.cx + 10 - cam.x), Math.round(this.y - 4 - ((this.t % 45) >> 3) - cam.y), 3, 1); }
+    }
+  }
+  // Cactus: a static spike. Hurts from any side; a yarn ball or pounce knocks it over.
+  class Cactus extends Enemy {
+    constructor(x, y) { super(x, y, 14, 26); this.isCactus = true; this.active = true; this.points = 100; }
+    behave(game) { this.vy = Math.min(this.vy + 0.6, 10); this.vx = 0; this.moveAndCollide(game); }
+    stomp(game, player) { player.hurt(game); }
+    touch(game, player) { player.hurt(game); }
+    draw(ctx, cam) { this.drawImg(ctx, cam, S().extras.CACTUS); }
+  }
+
   // ---------------- Boss: Duke the bulldog ----------------
   class Boss extends Enemy {
     constructor(x, y) {
@@ -874,6 +960,11 @@
   Lid.prototype.kind = 'lid'; Lid.prototype.netFields = [];
   Taxi.prototype.kind = 'taxi'; Taxi.prototype.netFields = [];
   Vent.prototype.kind = 'vent'; Vent.prototype.netFields = ['on', 'off', 'ph', 'height'];
+  Droid.prototype.kind = 'droid'; Droid.prototype.netFields = ['squishTimer', 'flipDead', 'hp', 'h'];
+  Drone.prototype.kind = 'drone'; Drone.prototype.netFields = ['flipDead', 'carrying'];
+  Parcel.prototype.kind = 'parcel'; Parcel.prototype.netFields = [];
+  Dino.prototype.kind = 'dino'; Dino.prototype.netFields = ['flipDead', 'state', 'onGround'];
+  Cactus.prototype.kind = 'cactus'; Cactus.prototype.netFields = ['flipDead'];
   Boss.prototype.kind = 'boss'; Boss.prototype.netFields = ['state', 'hp', 'maxHp', 'hurtT', 'flipDead', 'onGround'];
   Bone.prototype.kind = 'bone'; Bone.prototype.netFields = ['flipDead'];
   Platform.prototype.netFields = ['active', 'kind', 'dir'];
@@ -900,6 +991,11 @@
       case 'vent': return new Vent({ c: 0, r: 0 });
       case 'train': return new Platform({ c: 0, r: 0, type: 'train' });
       case 'bone': return new Bone(x, y, 1);
+      case 'droid': return new Droid(x, y);
+      case 'drone': return new Drone(x, y);
+      case 'parcel': return new Parcel(x, y);
+      case 'dino': return new Dino(x, y);
+      case 'cactus': return new Cactus(x, y);
       case 'bouncer': return new Bouncer(x, y);
       case 'fishitem': return new FishItem(x, y);
       case 'yarnitem': return new YarnItem(x, y);
@@ -926,5 +1022,5 @@
     return null;
   }
 
-  window.ENT = { makeGhost, fromFx, PHYS, Entity, Player, Mouse, Hedgehog, Fish, Boss, Bone, Rat, Pigeon, Raccoon, Lid, Taxi, TaxiSpawner, Vent, Platform, Bouncer, FishItem, YarnItem, StarItem, OneUp, CoinPickup, CoinPop, YarnBall, Puff, Poof, Dust, Sparkle, Afterimage, Fragment, Splash, ScorePop };
+  window.ENT = { makeGhost, fromFx, PHYS, Entity, Player, Mouse, Hedgehog, Fish, Boss, Bone, Rat, Pigeon, Raccoon, Lid, Taxi, TaxiSpawner, Vent, Droid, Drone, Parcel, Dino, Cactus, Platform, Bouncer, FishItem, YarnItem, StarItem, OneUp, CoinPickup, CoinPop, YarnBall, Puff, Poof, Dust, Sparkle, Afterimage, Fragment, Splash, ScorePop };
 })();

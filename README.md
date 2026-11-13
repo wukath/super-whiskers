@@ -32,7 +32,7 @@ pipes and the flag take everyone along.
 | Enter a warp pipe | Down while standing on it |
 | Wall jump | Push into a wall while falling, then jump |
 | Pause / mute | P / M |
-| Start at a level | 1 – 5 on the title screen |
+| Start at a level | 1 – 6 on the title screen |
 | Host / join online | O / J on the title screen |
 
 ## Levels
@@ -46,6 +46,10 @@ pipes and the flag take everyone along.
 5. **Midtown Rush** — New York at night. Dodge or ride yellow cabs, climb fire escapes to
    the rooftops, ride an elevated train (duck under the signals), surf steam vents over
    open manholes. Rats, swooping pigeons and lid-throwing raccoons.
+6. **The Googleplex** — a sunny campus. Ride search-bar lifts over the pond, stomp bugdroids
+   (twice — the first hit only dents them), dodge parcels from delivery drones, warp into a
+   data center full of blinking racks, then survive the "no internet" run: hop the cacti
+   before the Chrome dino wakes up and charges. Climb the office roofs past the G totem to the flag.
 
 Power-ups: fish snack (grow), ball of yarn (throw bouncing yarn balls), star (invincible),
 milk carton (1-up, hidden in invisible blocks).
@@ -57,7 +61,7 @@ Open `index.html` in a browser. That's it.
 ## Layout
 
 - `js/pixel.js` — pixel painter, sprite cache, bitmap font
-- `js/sprites.js`, `js/sprites_extra.js`, `js/sprites_boss.js`, `js/sprites_city.js` — pixel maps and animation frames
+- `js/sprites.js`, `js/sprites_extra.js`, `js/sprites_boss.js`, `js/sprites_city.js`, `js/sprites_plex.js` — pixel maps and animation frames
 - `js/tiles.js` — tiles, blocks, pipes, water, themed backgrounds
 - `js/level.js` — level definitions and parser
 - `js/entities.js` — player physics, enemies, items, platforms, effects

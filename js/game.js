@@ -58,7 +58,7 @@
           case 'ShiftLeft': case 'ShiftRight': case 'KeyX': case 'KeyJ': return 'run';
           case 'KeyC': case 'KeyL': return 'dash';
           case 'Enter': return 'start';
-          case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5': case 'Digit6': return 'lvl' + code[5];
+          case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5': case 'Digit6': case 'Digit7': return 'lvl' + code[5];
           case 'KeyP': return 'pause';
           case 'KeyH': case 'Slash': case 'F1': return 'help';
           case 'KeyM': return 'mute';
@@ -206,7 +206,7 @@
         this.me = this.players.find(p => p.id === this.myId) || null; if (this.me) { this.me.errX = 0; this.me.errY = 0; }
         this.pending = [];
         const th = this.level.theme;
-        this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : th === 'nyc' ? TILES.citySky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th), far: TILES.skyline(1280, 200, true), near: TILES.skyline(1280, 170, false) };
+        this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : th === 'nyc' ? TILES.citySky(VW, VH) : th === 'dc' ? TILES.dcSky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th), far: TILES.skyline(1280, 200, true), near: TILES.skyline(1280, 170, false) };
         this.state = 'intro'; this.stateTimer = 0;
       } else if (d.t === 'S') {
         d.recv = performance.now(); this.snaps.push(d); if (this.snaps.length > 12) this.snaps.shift();
@@ -388,6 +388,10 @@
           else if (s.type === 'rat') e = new E.Rat(x + 4, y - 20);
           else if (s.type === 'pigeon') e = new E.Pigeon(x + 6, y - 24, 160);
           else if (s.type === 'raccoon') e = new E.Raccoon(x + 5, y - 28);
+          else if (s.type === 'droid') e = new E.Droid(x + 5, y - 24);
+          else if (s.type === 'drone') e = new E.Drone(x + 4, y - 24, 160);
+          else if (s.type === 'dino') e = new E.Dino(x + 5, y - 24);
+          else if (s.type === 'cactus') e = new E.Cactus(x + 9, y - 26);
           else if (s.type === 'taxis') e = new E.TaxiSpawner(s);
           else if (s.type === 'vent') e = new E.Vent(s);
           else if (s.type === 'train') { e = new E.Platform(s); e.range = s.range * T; }
@@ -411,7 +415,7 @@
       this.cam.x = 0; this.flagY = 0; this.clearTimer = 0; this.warp = null; this.fxQueue = []; this.sfxQueue = []; this.flagPlayer = null; this.bossStarted = false;
       AUDIO.MUSIC.setRate(1);
       const th = this.level.theme;
-      this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : th === 'nyc' ? TILES.citySky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th), far: TILES.skyline(1280, 200, true), near: TILES.skyline(1280, 170, false) };
+      this.bg = { sky: TILES.sky(VW, VH, LEVELS.GROUND_ROW * T, th), cave: th === 'mansion' ? TILES.mansionSky(VW, VH) : th === 'nyc' ? TILES.citySky(VW, VH) : th === 'dc' ? TILES.dcSky(VW, VH) : TILES.caveSky(VW, VH), clouds: TILES.clouds(1280, 200, th), hills: TILES.hills(1280, 140, th), far: TILES.skyline(1280, 200, true), near: TILES.skyline(1280, 170, false) };
       if (this.mode === 'host' && this.state !== 'lobby' && this.state !== 'title') this.sendLevel();
     }
     setWorld(name) {
@@ -432,7 +436,7 @@
     splash(x, y) { this.add(new E.Splash(x, y)); AUDIO.SFX.splash(); }
     shake(frames, mag) { if (frames >= this.shakeT) { this.shakeT = frames; this.shakeMag = mag; } }
     // Which tune a level plays; the boss arena overrides it.
-    get song() { if (this.bossStarted === true) return 'boss'; const th = this.level && this.level.theme; return th === 'cave' ? 'caves' : th === 'sand' ? 'shore' : th === 'mansion' ? 'mansion' : th === 'nyc' ? 'midtown' : 'meadow'; }
+    get song() { if (this.bossStarted === true) return 'boss'; const th = this.level && this.level.theme; return th === 'cave' ? 'caves' : th === 'sand' ? 'shore' : th === 'mansion' ? 'mansion' : th === 'nyc' ? 'midtown' : th === 'plex' || th === 'dc' ? 'plex' : 'meadow'; }
     musicStar() { AUDIO.MUSIC.setRate(1.2); }
     musicNormal() { AUDIO.MUSIC.setRate(this.time <= 100 ? 1.25 : 1); }
     alivePlayers() { return this.players.filter(p => p.alive); }
@@ -721,8 +725,8 @@
     render() {
       const ctx = this.ctx, cam = this.cam, lv = this.level, P = this.painter;
       if (this.state === 'join' || this.state === 'connecting' || this.state === 'lobby') { this.drawLobby(); return; }
-      const cave = lv.theme === 'cave' || lv.theme === 'mansion', city = lv.theme === 'nyc';
-      ctx.drawImage(cave || city ? this.bg.cave : this.bg.sky, 0, 0);
+      const cave = lv.theme === 'cave' || lv.theme === 'mansion' || lv.theme === 'dc', city = lv.theme === 'nyc';
+      ctx.drawImage(lv.theme === 'dc' ? TILES.dcSky(VW, VH) : cave || city ? this.bg.cave : this.bg.sky, 0, 0);
       ctx.save();
       if (this.shakeT > 0) ctx.translate(Math.round((Math.random() - 0.5) * 2 * this.shakeMag), Math.round((Math.random() - 0.5) * 2 * this.shakeMag));
       if (city) {
@@ -742,6 +746,8 @@
         if (d.kind === 'bush') { const b = TILES.bush(Math.round(d.s * 10) / 10); ctx.drawImage(b, Math.round(d.c * T - cam.x), d.r * T - b.height + 1); }
         else if (d.kind === 'tower') { const s = SPRITES.extras.WATER_TOWER.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), d.r * T - s.height); }
         else if (d.kind === 'cart') { const s = SPRITES.extras.HOTDOG_CART.r; ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
+        else if (d.kind === 'sign') { const s = TILES.plexSign(); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
+        else if (d.kind === 'totem') { const s = TILES.gTotem(); ctx.drawImage(s, Math.round(d.c * T - cam.x), (d.r + 1) * T - s.height); }
       }
       if (lv.house) { const hs = SPRITES.extras.HOUSE.r; ctx.drawImage(hs, Math.round(lv.house.c * T - cam.x), (lv.house.r + 1) * T - hs.height); }
       if (lv.flag) {
@@ -862,7 +868,7 @@
       if ((this.frame % 60) < 40) this.center('ENTER  PLAY SOLO', 176, 2, '#ffffff');
       this.center('O  HOST AN ONLINE CO-OP GAME', 204, 1, '#bfe8ff');
       this.center('J  JOIN A FRIEND\'S ROOM', 218, 1, '#bfe8ff');
-      const lines = ['ARROWS / WASD  MOVE      SPACE / Z  JUMP      SHIFT / X  RUN + THROW YARN', 'C  POUNCE      DOWN  DUCK / CRAWL      DOWN IN AIR  GROUND POUND      DOWN ON PIPE  ENTER', 'JUMP OFF WALLS      P PAUSE   M MUTE   H HELP      1 - 5  START AT A LEVEL'];
+      const lines = ['ARROWS / WASD  MOVE      SPACE / Z  JUMP      SHIFT / X  RUN + THROW YARN', 'C  POUNCE      DOWN  DUCK / CRAWL      DOWN IN AIR  GROUND POUND      DOWN ON PIPE  ENTER', 'JUMP OFF WALLS      P PAUSE   M MUTE   H HELP      1 - 6  START AT A LEVEL'];
       lines.forEach((l, i) => this.center(l, 256 + i * 12, 1, '#dfe8ff'));
     }
     drawLobby() {

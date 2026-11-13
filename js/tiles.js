@@ -33,6 +33,17 @@
       grassLine: '#44444f', dark: '#16161c', mid: '#202028', blades: ['#cfcfd8', '#aeaeba', '#848492'], noBlades: true,
       pebble: ['#6a6a78', '#16161c', '#3c3c48'],
     },
+    // plex: campus lawn over warm concrete; the data center is dark raised flooring
+    plex: {
+      dirt: ['#e6e3dc', '#cfcbc2', '#aaa59a', '#7e7a70'], grass: ['#c8f58a', '#8fdc5a', '#5ebf45', '#3c9a36'],
+      grassLine: '#2d7a30', dark: '#5c584f', mid: '#7e7a70', blades: ['#d8ff9a', '#9ae860', '#62c84a'],
+      pebble: ['#f4f2ee', '#8a867c', '#c4c0b6'],
+    },
+    dc: {
+      dirt: ['#4a5068', '#3a4058', '#2c3146', '#1e2234'], grass: ['#aeb8d0', '#8a96b4', '#66708c', '#464e68'],
+      grassLine: '#2c3146', dark: '#141828', mid: '#1e2234', blades: ['#aeb8d0', '#8a96b4', '#66708c'], noBlades: true,
+      pebble: ['#6a748c', '#141828', '#3a4058'],
+    },
     // mansion: purple stone blocks under a red carpet runner
     mansion: {
       dirt: ['#7a5a8e', '#5e4472', '#463256', '#30213c'], grass: ['#ff7a86', '#d8445a', '#a82e46', '#6e1e30'],
@@ -88,6 +99,8 @@
       }
       if (theme === 'nyc') for (let j = (top ? 12 : 0); j < T; j += 6) { p.rect(0, GROUND_OVER + j, T, 1, '#5a3028'); for (let i = ((j / 6) % 2) * 8; i < T; i += 16) p.rect(i, GROUND_OVER + j, 1, 6, '#5a3028'); }
       if (theme === 'nycroad' && top) { p.rect(0, GROUND_OVER + 7, T, 1, '#f2c84a'); if (variant % 2 === 0) p.rect(4, GROUND_OVER + 20, 18, 2, '#e8e8d0'); }
+      // data center: raised floor tiles with a status LED on the top edge
+      if (theme === 'dc') { p.rect(0, GROUND_OVER + (top ? 8 : 0), 1, T, '#141828'); p.rect(0, GROUND_OVER + 16, T, 1, '#141828'); if (top) p.rect(6 + variant * 6, GROUND_OVER + 3, 2, 2, ['#34a853', '#4285f4', '#fbbc04', '#ea4335'][variant]); }
       // exposed edges
       if (bottom) { p.rect(0, GROUND_OVER + T - 2, T, 2, th.dark); p.rect(0, GROUND_OVER + T - 3, T, 1, th.mid); }
       if (left) { p.rect(0, GROUND_OVER + (top ? 2 : 0), 1, T, top ? th.grassLine : th.dark); p.rect(0, GROUND_OVER + (top ? grassDepth(ox) : 0), 1, T, th.dark); }
@@ -180,6 +193,14 @@
   }
   // Moving platform: a grassy slab.
   function lift(theme) {
+    // plex: a floating search bar
+    if (theme === 'plex' || theme === 'dc') return memo('lift' + theme, () => render(64, 16, p => {
+      p.rect(0, 2, 64, 14, '#9aa0a6'); p.rect(1, 3, 62, 12, '#ffffff'); p.rect(1, 3, 62, 1, '#e8eaed'); p.rect(1, 13, 62, 2, '#dadce0');
+      p.rect(0, 8, 1, 2, '#9aa0a6'); p.rect(63, 8, 1, 2, '#9aa0a6'); p.px(0, 2, '#ffffff'); p.px(63, 2, '#ffffff'); p.px(0, 15, '#ffffff'); p.px(63, 15, '#ffffff');
+      p.rect(6, 6, 1, 6, '#4285f4'); p.rect(10, 8, 18, 2, '#dadce0');
+      // magnifying glass
+      p.rect(50, 5, 5, 1, '#4285f4'); p.rect(50, 10, 5, 1, '#4285f4'); p.rect(49, 6, 1, 4, '#4285f4'); p.rect(55, 6, 1, 4, '#4285f4'); p.rect(55, 11, 2, 1, '#4285f4'); p.rect(57, 12, 2, 1, '#4285f4');
+    }));
     if (theme === 'mansion' || theme === 'cave') return memo('lift' + theme, () => render(64, 16, p => {
       const wood = theme === 'mansion' ? ['#8a5a3a', '#6a4028', '#4a2c1c', '#2a1810'] : ['#7a7490', '#5c566e', '#443e52', '#2a2636'];
       p.rect(0, 3, 64, 12, wood[3]); p.rect(1, 4, 62, 10, wood[1]); p.rect(1, 4, 62, 2, wood[0]); p.rect(1, 12, 62, 2, wood[2]);
@@ -271,6 +292,26 @@
       }
     }));
   }
+  // Data center hall: rows of server racks with blinking LEDs and cable trays.
+  function dcSky(w, h) {
+    return memo('dcsky', () => render(w, h, (p, c) => {
+      const g = c.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, '#0c1020'), g.addColorStop(0.7, '#141a30'), g.addColorStop(1, '#1c2240');
+      c.fillStyle = g; c.fillRect(0, 0, w, h);
+      // overhead cable trays and cold-aisle lights
+      p.rect(0, 14, w, 4, '#2a3050'); p.rect(0, 14, w, 1, '#3e4668');
+      for (let x = 20; x < w; x += 80) { p.rect(x, 18, 40, 3, '#e8f0ff'); p.alpha(0.08, () => p.rect(x - 20, 21, 80, 200, '#9ab8ff')); }
+      const leds = ['#34a853', '#4285f4', '#fbbc04', '#ea4335'];
+      for (let x = 8; x < w; x += 44) {
+        p.rect(x, 60, 36, 228, '#1a1f36'); p.rect(x, 60, 36, 1, '#3e4668'); p.rect(x, 60, 1, 228, '#2c3350'); p.rect(x + 35, 60, 1, 228, '#0a0d18');
+        for (let y = 66; y < 280; y += 12) {
+          p.rect(x + 3, y, 30, 8, '#242b48'); p.rect(x + 3, y, 30, 1, '#343c5c');
+          for (let k = 0; k < 4; k++) if (hash(x * 1.3 + y * 0.7 + k) > 0.45) p.rect(x + 6 + k * 3, y + 3, 2, 2, leds[(k + Math.floor(hash(x + y) * 4)) % 4]);
+          if (hash(x + y * 2.1) > 0.8) p.rect(x + 20, y + 2, 10, 4, '#2e3658');
+        }
+      }
+    }));
+  }
   function caveSky(w, h) {
     return memo('cavesky', () => render(w, h, (p, c) => {
       const g = c.createLinearGradient(0, 0, 0, h);
@@ -359,6 +400,12 @@
       sky: [[0, '#5a4a9e'], [0.35, '#c86a8e'], [0.65, '#ff9a6a'], [0.88, '#ffcf8a'], [1, '#fff0c0']], haze: 'rgba(255,230,180,0.35)', sun: { x: 470, y: 150, r: 34, cols: ['#ffd0a0', '#ff9a4a', '#ffb060', '#ffd080', '#fff0b0', '#ff8a3a'] },
       cloud: ['#fff4f2', '#ffdce0', '#ffbccc', '#e894ac'],
       hillA: ['#ffe9b0', '#f2cf80', '#d9ad5c', '#b58a40'], hillB: ['#fff0c4', '#f7d994', '#e0ba6a', '#c0964a'], rimA: '#c89a4a', rimB: '#d4a858', dot: '#b58a40',
+    },
+    // plex: bright California noon, rolling green hills
+    plex: {
+      sky: [[0, '#3f8ff0'], [0.5, '#7cc4ff'], [0.8, '#c6e8ff'], [1, '#eaf7ff']], haze: 'rgba(255,255,240,0.30)', sun: { x: 560, y: 60, r: 20, cols: ['#fff8d0', '#fbbc04', '#ffd54a', '#ffe48a', '#fff4c0', '#f4a800'] },
+      cloud: ['#ffffff', '#f4f9ff', '#dcecfb', '#bcd6ee'],
+      hillA: ['#a8ee8a', '#78d46c', '#4fb45e', '#378e55'], hillB: ['#bdf59a', '#92e182', '#68c86e', '#48a262'], rimA: '#3f9f5e', rimB: '#4aa966', dot: '#3f9f5e',
     },
   };
   function sky(w, h, groundY, theme = 'grass') {
@@ -464,11 +511,30 @@
       p.rect(2, hPx - 4, 8, 4, '#5a6a76'); p.rect(2, hPx - 4, 8, 1, '#c8d6e0');
     }));
   }
+  // Googleplex campus sign: four colored balls on a white board, plus a
+  // tall rainbow "G" totem for the big rooftop landmark.
+  function plexSign() {
+    return memo('plexsign', () => render(72, 40, p => {
+      p.rect(2, 36, 68, 4, '#7e7a70'); p.rect(32, 20, 8, 16, '#9aa0a6'); p.rect(33, 20, 1, 16, '#dadce0');
+      p.rect(0, 0, 72, 22, '#5f6368'); p.rect(1, 1, 70, 20, '#ffffff'); p.rect(1, 1, 70, 1, '#e8eaed');
+      const cols = ['#4285f4', '#ea4335', '#fbbc04', '#34a853'];
+      cols.forEach((c, i) => { p.disc(11 + i * 17, 11, 6, c); p.px(9 + i * 17, 8, '#ffffff'); p.px(10 + i * 17, 8, '#ffffff'); p.px(9 + i * 17, 9, '#ffffff'); });
+    }));
+  }
+  function gTotem() {
+    return memo('gtotem', () => render(64, 64, p => {
+      p.rect(28, 50, 8, 14, '#7e7a70'); p.rect(28, 50, 1, 14, '#aaa59a'); p.rect(22, 60, 20, 4, '#5c584f');
+      const ring = fn => { for (let y = -22; y <= 22; y++) for (let x = -22; x <= 22; x++) { const d = x * x + y * y; if (d > 484 || d < 196) continue; if (x > 2 && Math.abs(y) < 10) continue; fn(x, y); } };
+      ring((x, y) => { const a = Math.atan2(y, x); p.px(32 + x, 28 + y, a < -Math.PI / 2 ? '#ea4335' : a < 0 ? '#fbbc04' : a < Math.PI / 2 ? '#34a853' : '#4285f4'); });
+      ring((x, y) => { if (x + y < -24 && hash(x * 3 + y) > 0.55) p.px(32 + x, 28 + y, '#ffffff'); });
+      p.rect(34, 24, 20, 8, '#4285f4'); p.rect(34, 24, 20, 1, '#6fa3ff'); p.rect(34, 31, 20, 1, '#2a63c4');
+    }));
+  }
   function shadow(rx) {
     return memo('shadow' + rx, () => render(rx * 2, 4, p => {
       p.alpha(0.25, () => { for (let y = -2; y <= 1; y++) { const w = Math.round(rx * Math.sqrt(1 - (y * y) / 4.01)); p.rect(rx - w, 2 + y, w * 2, 1, '#1a3a1a'); } });
     }));
   }
 
-  window.TILES = { T, GROUND_OVER, THEMES, ground, crack, gate, lift, log, caveSky, mansionSky, citySky, skyline, questionBlock, usedBlock, brick, pipe, waterBack, waterFront, sky, clouds, hills, bush, flower, lily, pole, shadow };
+  window.TILES = { T, GROUND_OVER, THEMES, ground, crack, gate, lift, log, caveSky, mansionSky, citySky, dcSky, skyline, questionBlock, usedBlock, brick, pipe, waterBack, waterFront, sky, clouds, hills, bush, flower, lily, pole, shadow, plexSign, gTotem };
 })();
