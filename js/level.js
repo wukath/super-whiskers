@@ -123,10 +123,10 @@
     movers.push({ type: 'fall', c: 3, r: 20 }, { type: 'fall', c: 1, r: 23 });
     // 3 (r 26): the cracked floor: pound through the X tiles on the right to continue
     floor(26, 1, 38); for (let c = 30; c <= 35; c++) put(c, 26, 'X');
-    put(8, 25, 'm'); put(14, 25, 'm'); put(20, 25, 'h'); coins(4, 23, 3); coins(24, 23, 3, 2); put(31, 22, 'M');
+    put(8, 25, 'm'); put(20, 25, 'h'); coins(4, 23, 3); coins(24, 23, 3, 2); put(31, 22, 'M');
     fill(16, 16, 23, 25, '#'); coins(16, 21, 1);
     // 4 (r 34): stalactite pillars; the hole between them drops into the flooded hall
-    floor(34, 1, 38); fill(18, 19, 34, 34, '.'); fill(17, 17, 35, 41, '#'); fill(20, 20, 35, 41, '#'); for (let r = 36; r <= 41; r += 2) put(18 + (r / 2 % 2), r, 'C');
+    floor(34, 1, 38); fill(18, 19, 34, 34, '.'); fill(17, 17, 35, 41, '#'); fill(20, 20, 35, 41, '#'); for (let r = 37; r <= 41; r += 2) put(18 + ((r >> 1) & 1), r, 'C');
     put(28, 33, 'm'); put(34, 33, 'm'); put(6, 33, 'h'); put(10, 30, 'S');
     // 5 (r 43-46): the flooded hall: swim right, climb the bank, drop through the gap
     fill(1, 5, 43, 46, '#'); fill(33, 34, 43, 46, '#'); fill(38, 38, 43, 51, '#'); fill(1, 34, 47, 47, '#');
@@ -152,7 +152,7 @@
     ground(0, W - 1);
     put(3, 8, '@');
     // dunes: rolling ground that steps up and down
-    ground(8, 13, 8); ground(14, 19, 7); ground(20, 23, 8); put(16, 6, 'm'); coins(14, 5, 6); put(11, 5, '?');
+    ground(8, 13, 8); ground(14, 19, 7); ground(20, 23, 8); put(11, 7, 'm'); put(16, 6, 'm'); coins(14, 5, 6); put(11, 5, '?');
     ground(26, 29, 7); ground(30, 34, 6); ground(35, 37, 7); put(32, 5, 'h'); coins(30, 3, 5); put(22, 4, 'S');
     // tide pools: shallow water between sandbars with fish
     water(40, 43); ground(44, 46); water(47, 52); ground(53, 55); water(56, 58);
@@ -162,7 +162,7 @@
     put(76, 1, 'M');
     // the pier: a boardwalk on stilts over deep water, with gaps where planks are missing
     water(85, 120); for (let c = 85; c <= 116; c++) { if (c % 11 === 7 || c % 11 === 8) continue; put(c, 6, '#'); if (c % 5 === 0) { put(c, 7, '#'); put(c, 8, '#'); } }
-    put(88, 10, 'f'); put(96, 9, 'f'); put(104, 10, 'f'); put(112, 9, 'f'); coins(90, 4, 4); coins(101, 4, 4); coins(112, 4, 4); put(99, 5, 'm'); put(108, 5, 'm');
+    put(88, 10, 'f'); put(93, 9, 'f'); put(96, 9, 'f'); put(104, 10, 'f'); put(108, 9, 'f'); put(112, 9, 'f'); coins(90, 4, 4); coins(101, 4, 4); coins(112, 4, 4); put(99, 5, 'm'); put(108, 5, 'm');
     movers.push({ type: 'log', c: 92, r: 9, range: 3 }, { type: 'log', c: 103, r: 9, range: 3, phase: Math.PI }, { type: 'log', c: 114, r: 9, range: 2 });
     // the shipwreck: a hull of bricks sticking out of the sand, a cracked porthole, a hidden 1-up in the crow's nest
     ground(121, 134, 8); fill(124, 131, 6, 7, 'B'); fill(127, 128, 6, 7, '.'); put(127, 7, 'X'); put(128, 7, 'X'); fill(122, 122, 5, 7, 'B'); put(126, 4, 'B'); put(129, 4, 'B'); put(122, 1, '!'); coins(123, 3, 7, 2); put(133, 7, 'h');
@@ -180,7 +180,7 @@
     ground(199, 206, 7); put(203, 6, 'h');
     put(212, 8, 'F');
     put(220, 8, 'H');
-    return { rows: L.rows(), movers, warps: [], theme: 'sand', name: 'main', time: 400, title: 'SUNSET SHORE' };
+    return { rows: L.rows(), movers, warps: [], theme: 'sand', name: 'main', time: 380, title: 'SUNSET SHORE' };
   }
 
   // Level 4: the evil mansion, a tower you climb floor by floor: a grand
@@ -195,21 +195,21 @@
     fill(0, W - 1, H - 3, H - 1, '#');
     put(3, 52, '@');
     // ground floor (r 53): the entrance hall and a grand staircase up on the right
-    put(9, 52, 'm'); put(15, 52, 'h'); coins(6, 50, 4, 2); row(18, 49, 'B?B');
-    for (let i = 0; i < 7; i++) fill(32 - i, 32 - i, 52 - i, 52, '#');
-    coins(27, 44, 3, 2);
-    // 2nd floor (r 45): walk left to the chandelier shaft
-    floor(45, 1, 24); put(12, 44, 'h'); put(18, 44, 'm'); coins(8, 42, 3, 3); put(21, 41, '?');
-    movers.push({ type: 'vlift', c: 3, r: 44, range: 7 });
-    // 3rd floor (r 36): the library; trapdoor platforms climb the right wall
-    floor(36, 8, 40); put(14, 35, 'm'); put(20, 35, 'm'); put(26, 35, 'h'); row(10, 32, 'B?MB'); coins(18, 33, 4); fill(30, 30, 33, 35, 'X'); coins(32, 33, 2);
-    movers.push({ type: 'fall', c: 33, r: 33 }, { type: 'fall', c: 36, r: 30 }, { type: 'fall', c: 32, r: 28 });
+    put(9, 52, 'm'); put(15, 52, 'h'); put(21, 52, 'm'); coins(6, 50, 4, 2); row(18, 49, 'B?B');
+    for (let i = 0; i < 7; i++) fill(26 + i, 26 + i, 52 - i, 52, '#'); fill(33, 36, 46, 52, '#');
+    coins(28, 44, 3, 2);
+    // mezzanine (r 45, right side): a chandelier lift rises from it to the library
+    floor(45, 33, 40); put(36, 44, 'h'); put(39, 42, '?');
+    movers.push({ type: 'vlift', c: 36, r: 44, range: 7 });
+    // library (r 36): walk left through a cracked bookcase; trapdoor platforms climb the left wall
+    floor(36, 1, 34); put(14, 35, 'm'); put(20, 35, 'm'); put(26, 35, 'h'); row(16, 32, 'B?MB'); coins(22, 33, 4); fill(30, 30, 33, 35, 'X'); coins(31, 33, 2); coins(8, 33, 3, 2);
+    movers.push({ type: 'fall', c: 2, r: 33 }, { type: 'fall', c: 5, r: 30 });
     // 4th floor (r 27): portraits and hedgehogs; bookcase steps up the right side
-    floor(27, 1, 30); put(8, 26, 'h'); put(16, 26, 'h'); put(23, 26, 'm'); coins(4, 24, 5, 2); put(14, 23, 'S');
+    floor(27, 8, 40); put(12, 26, 'h'); put(18, 26, 'h'); put(25, 26, 'm'); coins(10, 24, 5, 2); put(16, 23, 'S');
     platform(33, 24, 2); platform(36, 21, 2); platform(32, 20, 2); coins(33, 23, 2); coins(36, 20, 2);
     // 5th floor (r 18): walk left to the chimney
-    floor(18, 1, 30); put(10, 17, 'm'); put(18, 17, 'm'); put(26, 17, 'h'); row(20, 14, '?BB?'); put(29, 13, '!'); coins(6, 15, 3);
-    fill(2, 3, 18, 18, '.'); fill(1, 1, 10, 17, '#'); fill(4, 4, 10, 17, '#'); for (let r = 11; r <= 17; r += 2) put(2 + (r / 2 % 2 | 0), r, 'C');
+    floor(18, 1, 30); put(10, 17, 'm'); put(14, 17, 'h'); put(18, 17, 'm'); put(26, 17, 'h'); row(20, 14, '?BB?'); put(29, 13, '!'); coins(6, 15, 3);
+    fill(1, 1, 10, 17, '#'); fill(4, 4, 10, 15, '#'); for (let r = 11; r <= 17; r += 2) put(2 + (r / 2 % 2 | 0), r, 'C');
     // attic (r 9): the boss arena, the gate, and the exit
     floor(9, 4, 40);
     put(7, 8, 'A');
@@ -274,16 +274,16 @@
     put(3, 8, '@');
     // campus entrance: the sign, a parked gBike, a welcome card and the first droid
     movers.push({ type: 'decor', kind: 'sign', c: 6, r: 8 }, { type: 'decor', kind: 'gbike', c: 10, r: 8 });
-    row(12, 6, '?B?'); row(13, 4, '?'); put(13, 2, 'M'); put(17, 8, 'd'); put(20, 8, 'd');
+    row(11, 6, '?B?B?'); put(13, 3, 'M'); put(17, 8, 'd'); put(20, 8, 'd');
     // the GOOGLE letters: each is a block-letter you climb over, in logo colors
     // G (blue)
     block(24, 29, 3, 3, 'plex0'); block(24, 24, 3, 8, 'plex0'); block(24, 29, 8, 8, 'plex0'); block(29, 29, 6, 8, 'plex0'); block(27, 29, 6, 6, 'plex0');
     coins(25, 2, 5); put(26, 7, 'C'); put(28, 5, 'd'); put(25, 4, '!');
     // O (red)
-    block(33, 37, 3, 3, 'plex1'); block(33, 37, 8, 8, 'plex1'); block(33, 33, 4, 7, 'plex1'); block(37, 37, 4, 7, 'plex1');
+    block(33, 37, 3, 3, 'plex1'); block(33, 37, 8, 8, 'plex1'); block(33, 33, 4, 7, 'plex1'); block(37, 37, 4, 5, 'plex1');
     coins(34, 2, 3); coins(34, 6, 3); put(35, 1, '!');
     // O (yellow)
-    block(41, 45, 3, 3, 'plex2'); block(41, 45, 8, 8, 'plex2'); block(41, 41, 4, 7, 'plex2'); block(45, 45, 4, 7, 'plex2');
+    block(41, 45, 3, 3, 'plex2'); block(41, 45, 8, 8, 'plex2'); block(41, 41, 4, 5, 'plex2'); block(45, 45, 4, 7, 'plex2');
     coins(42, 2, 3); coins(42, 6, 3); put(43, 2, 'd');
     // G (blue)
     block(49, 54, 3, 3, 'plex0'); block(49, 49, 4, 8, 'plex0'); block(49, 54, 8, 8, 'plex0'); block(54, 54, 6, 8, 'plex0'); block(52, 54, 6, 6, 'plex0');
@@ -297,14 +297,14 @@
     for (const c of [31, 39, 47, 56, 64]) block(c, c, 6, 8, 'plex4');
     // campus road: Street View cars, a crosswalk and a gBike rack
     movers.push({ type: 'taxis', kind: 'svcar', c: 76, r: 8, len: 20, period: 320, dir: -1 });
-    platform(80, 6, 2); coins(80, 5, 2); platform(86, 4, 2); coins(86, 3, 2); platform(92, 6, 2); coins(92, 5, 2);
+    platform(80, 6, 2); coins(80, 5, 2); platform(86, 4, 2); coins(86, 3, 2); platform(92, 6, 2); coins(92, 5, 2); put(87, 3, 'd');
     movers.push({ type: 'decor', kind: 'gbike', c: 97, r: 8 }, { type: 'decor', kind: 'gbike', c: 98, r: 8 });
     row(96, 4, '?B?'); put(99, 8, 'd');
     // glass office with a search-bar lift up to the roof, drones overhead
     block(102, 108, 5, 8, 'plex4'); put(104, 4, 'd'); coins(103, 3, 5);
     movers.push({ type: 'vlift', c: 110, r: 8, range: 4 });
-    put(114, 2, 'D'); put(122, 2, 'D');
-    block(113, 118, 2, 8, 'plex4'); coins(113, 0, 6); put(116, 1, 'd');
+    put(110, 2, 'D'); put(114, 1, 'D'); put(122, 2, 'D');
+    block(113, 118, 3, 8, 'plex4'); coins(113, 1, 6); put(116, 2, 'd'); put(114, 2, 'd');
     pit(120, 121); platform(121, 5, 2); coins(121, 4, 2);
     movers.push({ type: 'decor', kind: 'sign404', c: 124, r: 8 });
     // data center detour: the warp pipe drops into the server hall
@@ -326,7 +326,7 @@
     ['plex0', 'plex1', 'plex2', 'plex3', 'plex0', 'plex1'].forEach((th, i) => block(212 + i, 212 + i, 8 - i, 8, th));
     put(220, 8, 'F');
     put(226, 8, 'H');
-    return { rows: L.rows(), paint: L.paint, movers, warps, theme: 'plex', name: 'main', time: 450, title: 'THE GOOGLEPLEX' };
+    return { rows: L.rows(), paint: L.paint, movers, warps, theme: 'plex', name: 'main', time: 420, title: 'THE GOOGLEPLEX' };
   }
 
   // Level 7: Winter Wonderland. Snow falls the whole way. A village with lit
@@ -346,7 +346,7 @@
     row(20, 4, 'M?');
     // frozen pond: ice is slippery; foxes on the far bank
     ice(30, 44, GROUND_ROW);
-    coins(32, 6, 4, 3); put(37, 5, '?'); put(46, 8, 'x'); put(50, 8, 'x');
+    coins(32, 6, 4, 3); put(37, 5, '?'); put(34, 8, 'x'); put(46, 8, 'x'); put(50, 8, 'x');
     movers.push({ type: 'decor', kind: 'pine', c: 53, r: 8 });
     // ski hill: ride the lift side up (platforms), then slide down icy steps with gaps to jump
     platform(56, 7, 2); platform(60, 5, 2); platform(64, 4, 2); coins(56, 6, 2); coins(60, 4, 2); coins(64, 3, 2);
@@ -355,12 +355,12 @@
     let c = 74;
     for (const [len, rr] of [[4, 3], [4, 4], [5, 5], [5, 6], [6, 7], [6, 8]]) {
       for (let k = 0; k < len; k++) for (let y = rr; y < ROWS; y++) put(c + k, y, '#');
-      ice(c, c + len - 1, rr); coins(c + 1, rr - 2, len - 2);
-      c += len; pit(c, c); c += 1;
+      if (rr < 8) ice(c, c + len - 1, rr); coins(c + 1, rr - 2, len - 2);
+      c += len; if (rr < 8) { pit(c, c); c += 1; }
     }
     put(86, 4, 'x'); put(98, 6, 'x');
     // the big jump off the last step down to the cabin clearing
-    pit(c, c + 3); c += 4; coins(c - 4, 3, 4); put(c + 1, 8, 'x');
+    pit(c, c + 2); c += 4; coins(c - 4, 5, 3); put(c + 1, 8, 'x');
     // the cabin: drop in through the chimney pipe, come out by the door pipe
     const cab = c + 4;
     movers.push({ type: 'decor', kind: 'cabin', c: cab, r: 8 }, { type: 'decor', kind: 'snowman', c: cab - 3, r: 8 });
@@ -376,7 +376,7 @@
     fill(c, c + 26, 0, 1, '#'); fill(c, c, 2, 4, '#'); fill(c + 26, c + 26, 2, 4, '#');
     for (let k = c + 2; k <= c + 24; k += 3) put(k, 2, 'i');
     ice(c + 1, c + 25, GROUND_ROW);
-    pit(c + 8, c + 9); pit(c + 17, c + 18); coins(c + 4, 7, 3); coins(c + 12, 6, 4); coins(c + 21, 7, 3); put(c + 14, 8, 'x');
+    pit(c + 8, c + 9); pit(c + 17, c + 18); coins(c + 4, 7, 3); coins(c + 12, 6, 4); coins(c + 21, 7, 3); put(c + 5, 8, 'x'); put(c + 14, 8, 'x'); put(c + 23, 8, 'x');
     movers.push({ type: 'hlift', c: c + 8, r: 7, range: 1 }, { type: 'hlift', c: c + 17, r: 6, range: 1, phase: Math.PI });
     c += 30;
     // pines and a last cocoa before the arena
@@ -385,14 +385,14 @@
     // boss arena: a frozen lake under an icicle ceiling
     c += 12;
     put(c, 8, 'A');
-    fill(c + 2, c + 30, 0, 0, '#'); for (let k = c + 4; k <= c + 28; k += 4) put(k, 1, 'i');
+    fill(c + 2, c + 30, 0, 0, '#'); for (let k = c + 3; k <= c + 29; k += 3) put(k, 1, 'i');
     ice(c, c + 30, GROUND_ROW);
     fill(c + 31, c + 31, 1, 8, 'G');
     put(c + 20, 8, 'Y');
     put(c + 38, 8, 'F');
     movers.push({ type: 'decor', kind: 'pine', c: c + 41, r: 8 }, { type: 'decor', kind: 'lights', c: c + 40, r: 3, len: 10 });
     put(c + 44, 8, 'H');
-    return { rows: L.rows(), paint: L.paint, movers, warps, theme: 'snow', name: 'main', time: 500, title: 'WINTER WONDERLAND' };
+    return { rows: L.rows(), paint: L.paint, movers, warps, theme: 'snow', name: 'main', time: 450, title: 'WINTER WONDERLAND' };
   }
 
   // Cabin interior reached from level 7: log walls, a fire, hot cocoa on the table.
@@ -406,8 +406,8 @@
     // the table with cocoa, bookshelf steps, presents (coins) under the tree
     platform(14, 6, 3); put(15, 5, 'M');
     platform(20, 5, 2); platform(24, 3, 2); coins(20, 4, 2); coins(24, 2, 2);
-    row(28, 2, 'B?B');
-    put(33, 8, '^'); coins(32, 2, 6); put(38, 3, 'S');
+    platform(28, 5, 2); coins(28, 4, 2); row(30, 3, 'B?B');
+    put(35, 8, '^'); coins(34, 2, 6); put(39, 4, 'S');
     movers.push({ type: 'decor', kind: 'pine', c: 40, r: 8 }); coins(40, 8, 4);
     pipe(46, 2, true);
     return { rows: L.rows(), movers, warps: [], theme: 'cabin', name: 'cabin', time: 0 };

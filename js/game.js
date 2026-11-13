@@ -400,7 +400,7 @@
           else if (s.type === 'vent') e = new E.Vent(s);
           else if (s.type === 'train') { e = new E.Platform(s); e.range = s.range * T; }
           else if (s.type === 'hlift' || s.type === 'vlift' || s.type === 'fall' || s.type === 'log') { e = new E.Platform(s); e.theme = level.theme; }
-          if (e) { e.nid = this.nid++; entities.push(e); }
+          if (e) { e.nid = this.nid++; if (e.isEnemy && !e.isBoss && e.tune) e.tune(1 + this.stage * 0.07); else if (e.isSpawner) e.k = 1 + this.stage * 0.07; entities.push(e); }
         }
         this.worlds[level.name] = { level, entities, bumps: [], tileLog: [], tileSent: 0 };
       }
@@ -605,7 +605,7 @@
         if (this.time <= 0) { this.time = 0; for (const p of this.alivePlayers()) this.killPlayer(p, false); }
       }
       const f = this.level.flag;
-      if (f) for (const p of this.alivePlayers()) if (p.x + p.w > f.c * T + 14 && p.x < f.c * T + 34 && p.y < f.r * T && p.bottom > (f.r - 8) * T) { this.startFlag(p); break; }
+      if (f) for (const p of this.alivePlayers()) if (p.x + p.w > f.c * T + 1 && p.x < f.c * T + 34 && p.y < f.r * T && p.bottom > (f.r - 8) * T) { this.startFlag(p); break; }
     }
     playerCollisions(p) {
       const lag = p.lagFrames || 0;
@@ -643,13 +643,22 @@
       this.cam.x = Math.max(0, Math.min(this.levelW - VW, this.cam.x));
       this.updateCameraY(group);
     }
-    // Vertical follow for tall levels: keep the group in a band around the middle of the screen.
+    // Vertical follow for tall levels. The camera only re-anchors when the group is
+    // standing on something (or is far outside the view), so jumps don't move the screen.
     updateCameraY(group, snap) {
       if (this.levelH <= VH + T) { this.cam.y = 0; return; }
-      const mean = group.reduce((s, p) => s + p.bottom, 0) / group.length;
-      const target = mean - VH * 0.6;
-      if (snap) this.cam.y = target;
-      else { if (target - this.cam.y > 40) this.cam.y += (target - 40 - this.cam.y) * 0.2; else if (this.cam.y - target > 60) this.cam.y += (target + 60 - this.cam.y) * 0.2; }
+      const grounded = group.filter(p => p.onGround || p.carrier || p.inWater);
+      const ref = grounded.length ? grounded : group;
+      const mean = ref.reduce((s, p) => s + p.bottom, 0) / ref.length;
+      const want = Math.max(0, Math.min(this.levelH - VH, mean - VH * 0.62));
+      if (snap) { this.cam.y = want; this.camYTarget = want; return; }
+      if (this.camYTarget === undefined) this.camYTarget = this.cam.y;
+      const lo = group.reduce((m, p) => Math.min(m, p.y), 1e9), hi = group.reduce((m, p) => Math.max(m, p.bottom), -1e9);
+      if (grounded.length && Math.abs(want - this.camYTarget) > 24) this.camYTarget = want;
+      // safety: never let a cat leave the screen
+      if (lo < this.cam.y + 40) this.camYTarget = Math.max(0, lo - 40);
+      if (hi > this.cam.y + VH - 30) this.camYTarget = Math.min(this.levelH - VH, hi - VH + 30);
+      this.cam.y += (this.camYTarget - this.cam.y) * 0.12;
       this.cam.y = Math.max(0, Math.min(this.levelH - VH, this.cam.y));
     }
     updatePlatforms() { for (const e of this.entities) if (e.isPlatform || e.isBouncer) e.update(this); }

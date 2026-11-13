@@ -119,6 +119,8 @@
       this.inWater = !!wt && wt.type === 'water';
       if (this.inWater && !this.wasInWater && this.vy > 2) { game.splash(this.cx, Math.floor((this.y + this.h * 0.6) / T) * T + 4); this.pound = null; this.dashTimer = 0; }
       if (!this.inWater && this.wasInWater && this.vy < -2) { game.splash(this.cx, Math.floor((this.y + this.h * 0.6) / T + 1) * T + 4); }
+      // just left the water: no wall jumps for a moment, so a jump at the bank climbs out instead of kicking off it
+      if (this.inWater) this.waterExit = 18; else if (this.waterExit > 0) this.waterExit--;
       this.wasInWater = this.inWater;
 
       // ground pound: brief hang, then slam
@@ -206,7 +208,7 @@
           this.jumpHeld = true; this.coyote = 0; this.jumpBuffer = 0; this.onGround = false;
           this.squash(0.78, 1.22); AUDIO.SFX.jump();
           game.add(new Dust(this.cx, this.bottom - 2, 0, 2));
-        } else if (this.jumpBuffer > 0 && (this.wallSlide || this.wallCoyote > 0) && !this.wasOnGround) {
+        } else if (this.jumpBuffer > 0 && (this.wallSlide || this.wallCoyote > 0) && !this.wasOnGround && !(this.waterExit > 0)) {
           const wd = this.wallDir;
           this.vy = PHYS.wallJumpV; this.vx = -wd * PHYS.wallJumpVx; this.facing = -wd; this.inputLock = 9;
           this.jumpHeld = true; this.jumpBuffer = 0; this.wallCoyote = 0; this.wallSlide = false; this.airDashUsed = false;
@@ -238,7 +240,7 @@
         this.wallSlide = true; this.wallDir = this.hitWall; this.wallCoyote = 7; this.airDashUsed = false;
         if (this.vy > PHYS.wallSlideMax) this.vy = PHYS.wallSlideMax;
         if (this.t % 5 === 0) game.add(new Dust(this.x + (this.wallDir > 0 ? this.w : 0), this.y + this.h - 6, 0, 1));
-      } else if (this.hitWall !== 0 && !this.onGround) { this.wallDir = this.hitWall; this.wallCoyote = 7; }
+      }
 
       // landing
       if (this.onGround && !this.wasOnGround) {
@@ -360,7 +362,9 @@
 
   // ---------------- Enemies ----------------
   class Enemy extends Entity {
-    constructor(x, y, w, h) { super(x, y, w, h); this.isEnemy = true; this.squishTimer = 0; this.flipDead = false; this.active = false; }
+    constructor(x, y, w, h) { super(x, y, w, h); this.isEnemy = true; this.squishTimer = 0; this.flipDead = false; this.active = false; this.k = 1; }
+    // Difficulty scale set per stage: faster walkers, more frequent throws.
+    tune(k) { this.k = k; if (this.vx) this.vx *= k; }
     update(game) {
       this.t++;
       if (this.flipDead) { this.vy += 0.5; this.y += this.vy; this.x += this.vx; if (this.y > game.levelH + 60) this.remove = true; return; }
@@ -404,7 +408,7 @@
         if (this.vx !== 0) this.facing = Math.sign(this.vx);
       } else if (this.state === 'ball') {
         this.vx = 0; this.moveAndCollide(game);
-        if (--this.wake <= 0) { this.state = 'walk'; this.vx = -0.8; this.h = 22; this.y -= 2; }
+        if (--this.wake <= 0) { this.state = 'walk'; this.vx = -0.8 * this.k; this.h = 22; this.y -= 2; }
       } else {
         this.moveAndCollide(game, { bounce: true });
         if (this.hitWall) {
@@ -495,7 +499,7 @@
       const t = game.alivePlayers().sort((a, b) => Math.abs(a.cx - this.cx) - Math.abs(b.cx - this.cx))[0];
       if (t) this.facing = t.cx < this.cx ? -1 : 1;
       if (--this.throwT <= 0) {
-        this.throwT = 160;
+        this.throwT = Math.round(160 / this.k);
         if (t && Math.abs(t.cx - this.cx) < 320) { const d = t.cx - this.cx; game.add(new Lid(this.cx + this.facing * 8, this.y - 4, Math.max(-4, Math.min(4, d / 60)), -7.5)); this.throwing = 18; AUDIO.SFX.yarn(); }
       }
       if (this.throwing > 0) this.throwing--;
@@ -518,7 +522,7 @@
   }
   // Yellow cabs barrel along the street. They hurt from the side but you can ride the roof.
   class Taxi extends Enemy {
-    constructor(x, y, dir, skin) { super(x, y, 58, 22); this.vx = (skin === 'svcar' ? 3.2 : 4.3) * dir; this.facing = dir; this.isPlatform = true; this.isTaxi = true; this.active = true; this.dx = 0; this.dy = 0; this.points = 0; this.riders = 0; this.life = 600; this.skin = skin || 'taxi'; }
+    constructor(x, y, dir, skin, k = 1) { super(x, y, 58, 22); this.vx = (skin === 'svcar' ? 3.2 : 4.3) * dir * k; this.facing = dir; this.isPlatform = true; this.isTaxi = true; this.active = true; this.dx = 0; this.dy = 0; this.points = 0; this.riders = 0; this.life = 600; this.skin = skin || 'taxi'; }
     ridden() { this.riders = 2; }
     behave(game) {
       const px = this.x; this.x += this.vx; this.dx = this.x - px; this.dy = 0;
@@ -538,9 +542,9 @@
       if (!near) { this.timer = Math.min(this.timer, 60); return; }
       if (--this.timer === 70) { AUDIO.SFX.honk(); game.add(new ScorePop(game.cam.x + (this.dir < 0 ? 520 : 40), this.y - 10, this.spec.kind === 'svcar' ? 'SMILE!' : 'HONK!')); }
       if (this.timer <= 0) {
-        this.timer = this.spec.period || 230;
+        this.timer = Math.round((this.spec.period || 230) / (this.k || 1));
         const x = this.dir < 0 ? Math.max(this.x + this.w, game.cam.x + 660) : Math.min(this.x - 64, game.cam.x - 80);
-        game.add(new Taxi(x, this.y + T - 22, this.dir, this.spec.kind));
+        game.add(new Taxi(x, this.y + T - 22, this.dir, this.spec.kind, this.k || 1));
       }
     }
     draw() { }
@@ -609,7 +613,7 @@
       this.y = this.y0 + Math.sin(this.t * 0.04) * 6;
       if (this.cool > 0) this.cool--; else if (!this.carrying) { this.carrying = true; }
       const t = game.alivePlayers().find(p => Math.abs(p.cx - this.cx) < 20 && p.y > this.y && p.y < this.y + 260);
-      if (t && this.carrying && this.cool <= 0) { this.carrying = false; this.cool = 200; game.add(new Parcel(this.cx - 6, this.y + 12)); AUDIO.SFX.bump(); }
+      if (t && this.carrying && this.cool <= 0) { this.carrying = false; this.cool = Math.round(200 / this.k); game.add(new Parcel(this.cx - 6, this.y + 12)); AUDIO.SFX.bump(); }
       this.facing = this.vx < 0 ? -1 : 1;
     }
     stomp(game, player) { this.flipKill(game, player.facing); AUDIO.SFX.stomp(); }
@@ -678,7 +682,7 @@
       this.moveAndCollide(game);
       if (this.hitWall) this.vx = 0;
       if (--this.throwT <= 0) {
-        this.throwT = 130;
+        this.throwT = Math.round(130 / this.k);
         if (t && Math.abs(t.cx - this.cx) < 340) { const d = t.cx - this.cx; game.add(new Snowball(this.cx + this.facing * 10, this.y + 2, Math.max(-4.5, Math.min(4.5, d / 55)), -6.5)); this.throwing = 16; AUDIO.SFX.yarn(); }
       }
       if (this.throwing > 0) this.throwing--;
@@ -732,7 +736,7 @@
   // Pounces across the arena, slams to shake icicles loose, and rolls giant snowballs.
   class SnowCat extends Enemy {
     constructor(x, y) {
-      super(x, y, 60, 44); this.isBoss = true; this.active = true; this.hp = 3; this.maxHp = 3; this.state = 'sleep'; this.stateT = 0; this.hurtT = 0; this.facing = -1; this.points = 6000; this.nextMove = 'pounce'; this.name = 'FROSTY';
+      super(x, y, 60, 44); this.isBoss = true; this.active = true; this.hp = 4; this.maxHp = 4; this.state = 'sleep'; this.stateT = 0; this.hurtT = 0; this.facing = -1; this.points = 6000; this.nextMove = 'pounce'; this.name = 'FROSTY';
     }
     get rage() { return (this.maxHp - this.hp) / this.maxHp; }
     behave(game) {
@@ -1128,7 +1132,7 @@
   YarnBall.prototype.kind = 'yarn'; YarnBall.prototype.netFields = [];
   Player.prototype.netFields = ['form', 'catIndex', 'name', 'anim', 'dying', 'bubbled', 'out', 'hidden', 'sliding', 'pound', 'poundTimer', 'dashTimer', 'inWater', 'swimKick', 'onGround', 'skidding', 'wallSlide', 'wallDir', 'hurtTimer', 'starTimer', 'growTimer', 'growTo', 'sx', 'sy', 'bubbleT', 'w', 'h', 'crouch'];
   // Extra state a guest needs to continue simulating its own cat from a snapshot.
-  Player.prototype.predFields = ['vx', 'vy', 'jumpHeld', 'coyote', 'jumpBuffer', 'wasInWater', 'wallCoyote', 'inputLock', 'dashCooldown', 'dashDir', 'airDashUsed', 'prevBottom', 'wasOnGround', 'frozen', 'throwTimer', 'deadTimer'];
+  Player.prototype.predFields = ['vx', 'vy', 'jumpHeld', 'coyote', 'jumpBuffer', 'wasInWater', 'waterExit', 'wallCoyote', 'inputLock', 'dashCooldown', 'dashDir', 'airDashUsed', 'prevBottom', 'wasOnGround', 'frozen', 'throwTimer', 'deadTimer'];
   function makeGhost(kind, x, y) {
     switch (kind) {
       case 'mouse': return new Mouse(x, y);
